@@ -210,10 +210,14 @@
 
 <script>
 (function () {
-  // gen.pollinations.ai authenticates browser apps via the Referer header.
-  // Register this app's domain at https://enter.pollinations.ai so live
-  // visits from that origin are auto-authed by the platform.
+  // Two endpoints, fail-open ordering:
+  //   1. gen.pollinations.ai  — the new unified endpoint. Browser auth is via
+  //      Referer once this app's domain is registered at enter.pollinations.ai.
+  //   2. image.pollinations.ai — the legacy public mirror; serves anonymously.
+  //      Used as a fallback so the demo works for first-time visitors before
+  //      the app domain is registered.
   const GEN_BASE = 'https://gen.pollinations.ai/image';
+  const LEGACY_BASE = 'https://image.pollinations.ai/prompt';
   const REFERRER = 'pollinations-image-demo';
 
   const $ = (id) => document.getElementById(id);
@@ -224,7 +228,7 @@
   const goBtn = $('go');
   const resultEl = $('result');
 
-  function buildUrl(prompt, model, w, h) {
+  function buildUrl(base, prompt, model, w, h) {
     const params = new URLSearchParams({
       model,
       width: String(w),
@@ -233,7 +237,7 @@
       enhance: 'false',
       referrer: REFERRER,
     });
-    return `${GEN_BASE}/${encodeURIComponent(prompt)}?${params}`;
+    return `${base}/${encodeURIComponent(prompt)}?${params}`;
   }
 
   function showLoading(url) {
@@ -243,17 +247,27 @@
       <p class="meta">${url}</p>`;
   }
 
-  function showImage(url) {
+  function showImage(blobUrl, sourceUrl, sourceLabel) {
     resultEl.innerHTML = `
-      <img src="${url}" alt="Generated image">
-      <p class="meta">${url}</p>`;
+      <img src="${blobUrl}" alt="Generated image">
+      <p class="meta">via ${sourceLabel} · ${sourceUrl}</p>`;
   }
 
   function showError(message, url) {
     resultEl.innerHTML = `
       <p class="error">⚠️ ${message}</p>
       <p class="meta">${url || ''}</p>
-      <p class="placeholder">Tip: sign in at <a href="https://enter.pollinations.ai" target="_blank" rel="noopener" style="color:var(--accent-hover)">enter.pollinations.ai</a> and register this app's domain to enable referer-based auth.</p>`;
+      <p class="placeholder">Try a shorter prompt or different model. If this persists, sign in at <a href="https://enter.pollinations.ai" target="_blank" rel="noopener" style="color:var(--accent-hover)">enter.pollinations.ai</a>.</p>`;
+  }
+
+  async function fetchImage(base, label, prompt, model, w, h) {
+    const url = buildUrl(base, prompt, model, w, h);
+    const res = await fetch(url, { method: 'GET' });
+    if (!res.ok) {
+      return { ok: false, status: res.status, url, label };
+    }
+    const blob = await res.blob();
+    return { ok: true, blobUrl: URL.createObjectURL(blob), url, label };
   }
 
   async function generate() {
@@ -266,23 +280,23 @@
     const w = Math.max(64, Math.min(2048, parseInt(widthEl.value, 10) || 1024));
     const h = Math.max(64, Math.min(2048, parseInt(heightEl.value, 10) || 1024));
 
-    const url = buildUrl(prompt, model, w, h);
     goBtn.disabled = true;
-    showLoading(url);
+    showLoading(buildUrl(GEN_BASE, prompt, model, w, h));
 
     try {
-      const res = await fetch(url, { method: 'GET' });
-      if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        throw new Error(`HTTP ${res.status} ${res.statusText}${text ? ' — ' + text.slice(0, 200) : ''}`);
+      // 1. Try the new gen.pollinations.ai endpoint first.
+      let result = await fetchImage(GEN_BASE, 'gen.pollinations.ai', prompt, model, w, h);
+      // 2. Fall back to legacy anonymous endpoint on auth/rate failures.
+      if (!result.ok && [401, 402, 403, 429].includes(result.status)) {
+        showLoading(buildUrl(LEGACY_BASE, prompt, model, w, h));
+        result = await fetchImage(LEGACY_BASE, 'image.pollinations.ai (anonymous)', prompt, model, w, h);
       }
-      // Stream the image into a blob URL so we can show it without
-      // making the browser re-request the upstream URL.
-      const blob = await res.blob();
-      const objUrl = URL.createObjectURL(blob);
-      showImage(objUrl);
+      if (!result.ok) {
+        throw new Error(`HTTP ${result.status} from both endpoints`);
+      }
+      showImage(result.blobUrl, result.url, result.label);
     } catch (err) {
-      showError(err.message || String(err), url);
+      showError(err.message || String(err));
     } finally {
       goBtn.disabled = false;
     }

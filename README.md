@@ -13,7 +13,7 @@ Free AI image generation powered by [Pollinations.ai](https://pollinations.ai) �
 
 - 🌐 **Browser app** — single static `index.html`, vanilla JS, no framework, no build
 - 🐍 **Python CLI** — single file, zero dependencies (Python stdlib only)
-- 🎨 **Four free models** — `flux`, `zimage`, `klein`, `kontext`
+- 🎨 **Three free models** — `flux`, `zimage`, `klein`
 - ⚡ **Uses the new `gen.pollinations.ai` endpoint** (the recommended endpoint as of 2026)
 - 🔑 **Optional API key** for higher quotas (anonymous fallback for the CLI)
 - 📱 **Mobile responsive** dark UI
@@ -25,8 +25,8 @@ Free AI image generation powered by [Pollinations.ai](https://pollinations.ai) �
 
 | Surface | Endpoint | Auth | Models |
 |---|---|---|---|
-| **Browser (`index.html`)** | `GET https://gen.pollinations.ai/image/{prompt}?model=…&width=…&height=…` | Browser sends `Referer` header automatically — works once the deployed origin is registered at [enter.pollinations.ai](https://enter.pollinations.ai) | flux · zimage · klein · kontext |
-| **CLI (`generate_image.py`)** | Same `gen.pollinations.ai/image/{prompt}` endpoint | `Authorization: Bearer <POLLINATIONS_API_KEY>` (env var or `--api-key` flag); falls back to anonymous `image.pollinations.ai/prompt/` if no key | flux · zimage · klein · kontext |
+| **Browser (`index.html`)** | `GET https://gen.pollinations.ai/image/{prompt}?model=…&width=…&height=…` | Browser sends `Referer` header automatically — works once the deployed origin is registered at [enter.pollinations.ai](https://enter.pollinations.ai) | flux · zimage · klein |
+| **CLI (`generate_image.py`)** | Same `gen.pollinations.ai/image/{prompt}` endpoint | `Authorization: Bearer <POLLINATIONS_API_KEY>` (env var or `--api-key` flag); falls back to anonymous `image.pollinations.ai/prompt/` if no key | flux · zimage · klein |
 
 The app does not embed any secret in the static page — auth is handled by the Pollinations platform via referer matching for registered app domains.
 
@@ -63,7 +63,7 @@ python generate_image.py "robot" --api-key pk_xxxxx
 
 | Flag | Default | Notes |
 |------|---------|-------|
-| `--model` | `flux` | One of `flux`, `zimage`, `klein`, `kontext` |
+| `--model` | `flux` | One of `flux`, `zimage`, `klein` |
 | `--width` | `1024` | Pixels |
 | `--height` | `1024` | Pixels |
 | `--out` | `output_<model>.png` | Output file path |
@@ -83,7 +83,6 @@ python generate_image.py "robot" --api-key pk_xxxxx
 | `flux` | Photorealistic, versatile |
 | `zimage` | Artistic, stylized |
 | `klein` | Fast, creative |
-| `kontext` | Context-aware |
 
 All four are free models exposed under `gen.pollinations.ai/image/{prompt}`.
 

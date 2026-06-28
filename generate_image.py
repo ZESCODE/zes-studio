@@ -16,7 +16,7 @@ Usage:
   python generate_image.py "futuristic city at sunset" --model flux --width 1280 --height 720
   python generate_image.py "portrait photo" --model zimage --out my_image.png --api-key pk_xxx
 
-Available free models: flux (default), zimage, klein, kontext
+Available free models: flux (default), zimage, klein
 """
 import argparse
 import os
@@ -84,7 +84,7 @@ def main():
     parser.add_argument("prompt", help="Text description of the image")
     parser.add_argument(
         "--model", default=DEFAULT_MODEL,
-        choices=["flux", "zimage", "klein", "kontext"],
+        choices=["flux", "zimage", "klein"],
         help="Image model (default: flux)",
     )
     parser.add_argument("--width", type=int, default=DEFAULT_WIDTH)

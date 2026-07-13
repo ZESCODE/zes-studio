@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>台灣好寫 TW Writer — 繁中改寫 / 潤稿 / 縮短</title>
+<meta name="description" content="任何語言一鍵改寫成台灣慣用繁體中文。嚴禁簡體字、中國大陸及港澳用語。Powered by Pollinations.ai">
+<style>
+:root{
+  --bg:#0f0f14;--panel:#1a1a23;--panel2:#13131c;
+  --border:#2a2a36;--accent:#3b82f6;--ah:#60a5fa;
+  --text:#e6e6ef;--muted:#8a8a99;--err:#ff6464;
+  --green:#4ade80;--tag-bg:#1e2235;--tag:#60a5fa;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans TC",sans-serif;
+  line-height:1.65;}
+header{padding:1.5rem 1.5rem 1rem;text-align:center;border-bottom:1px solid var(--border);}
+header h1{margin:0 0 .3rem;font-size:clamp(1.3rem,3.5vw,1.9rem);
+  background:linear-gradient(90deg,#3b82f6,#06b6d4);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+header p{margin:0;color:var(--muted);font-size:.9rem;}
+.badge-row{margin:.6rem 0 0;display:flex;justify-content:center;gap:.5rem;flex-wrap:wrap;}
+.badge{font-size:.72rem;background:var(--tag-bg);color:var(--tag);border:1px solid #2a3a5c;
+  border-radius:20px;padding:.18rem .6rem;}
+.badge.red{color:#f87171;background:#1f1212;border-color:#4a1f1f;}
+.main{max-width:980px;margin:0 auto;padding:1.25rem;display:flex;flex-direction:column;gap:1rem;}
+/* Mode bar */
+.mode-bar{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;}
+.mode-bar span{font-size:.82rem;color:var(--muted);margin-right:.3rem;}
+.mode-btn{background:var(--panel);border:1px solid var(--border);color:var(--muted);
+  border-radius:7px;padding:.38rem .9rem;font-size:.88rem;cursor:pointer;
+  transition:all .15s;font-family:inherit;}
+.mode-btn.active,.mode-btn:hover{background:var(--accent);border-color:var(--accent);color:#fff;}
+.tone-sel{background:var(--panel);border:1px solid var(--border);color:var(--text);
+  border-radius:7px;padding:.35rem .7rem;font-size:.88rem;font-family:inherit;margin-left:auto;}
+.tone-sel:focus{outline:none;border-color:var(--accent);}
+/* Account bar */
+.account-bar{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+  padding:.75rem 1rem;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;font-size:.82rem;}
+.account-bar .st{flex:1;color:var(--muted);}
+.account-bar .st.on{color:var(--green);}
+.btn-sm{background:none;border:1px solid var(--border);color:var(--text);
+  border-radius:6px;padding:.25rem .65rem;font-size:.8rem;cursor:pointer;}
+.btn-sm:hover{border-color:var(--accent);color:var(--accent);}
+/* Editor */
+.editor-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+@media(max-width:700px){.editor-row{grid-template-columns:1fr;}}
+.pane{display:flex;flex-direction:column;gap:.5rem;}
+.pane label{font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
+textarea,.output-box{width:100%;background:#0a0a10;color:var(--text);
+  border:1px solid var(--border);border-radius:9px;padding:.8rem 1rem;
+  font-size:.97rem;font-family:inherit;line-height:1.75;}
+textarea{resize:vertical;min-height:260px;}
+textarea:focus{outline:none;border-color:var(--accent);}
+.output-box{min-height:260px;max-height:60vh;overflow-y:auto;
+  white-space:pre-wrap;word-break:break-word;}
+.output-box.placeholder{display:flex;align-items:center;justify-content:center;
+  color:var(--muted);font-size:.92rem;}
+.output-box.active{border-color:var(--accent);}
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--border);
+  border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;
+  vertical-align:middle;margin-right:.5rem;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.err-text{color:var(--err);}
+/* Bottom controls */
+.bottom-row{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;}
+button#go{background:var(--accent);color:#fff;border:none;border-radius:9px;
+  padding:.65rem 1.8rem;font-size:1rem;font-weight:700;cursor:pointer;transition:background .15s;}
+button#go:hover{background:var(--ah);}
+button#go:disabled{background:#3a3a3a;color:#666;cursor:not-allowed;}
+button#copy-btn{background:none;border:1px solid var(--border);color:var(--text);
+  border-radius:7px;padding:.6rem 1.1rem;font-size:.9rem;cursor:pointer;}
+button#copy-btn:hover{border-color:var(--accent);color:var(--accent);}
+.hint{font-size:.8rem;color:var(--muted);}
+.meta-line{font-size:.75rem;color:var(--muted);min-height:1.1em;}
+/* Model selector */
+.model-row{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;}
+.model-row label{font-size:.8rem;color:var(--muted);}
+.model-row select{background:#0a0a10;color:var(--text);border:1px solid var(--border);
+  border-radius:7px;padding:.4rem .7rem;font-size:.85rem;font-family:inherit;}
+.model-row select:focus{outline:none;border-color:var(--accent);}
+/* Forbidden terms display */
+.rules-panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+  padding:1rem 1.1rem;font-size:.83rem;}
+.rules-panel summary{cursor:pointer;color:var(--muted);user-select:none;
+  list-style:none;display:flex;align-items:center;gap:.4rem;}
+.rules-panel summary::before{content:"▶";font-size:.7rem;transition:transform .2s;}
+details[open] .rules-panel summary::before{transform:rotate(90deg);}
+.rules-panel summary:hover{color:var(--text);}
+.rules-grid{display:grid;grid-template-columns:1fr 1fr;gap:.25rem .75rem;margin-top:.75rem;}
+@media(max-width:500px){.rules-grid{grid-template-columns:1fr;}}
+.rule-item{display:flex;gap:.4rem;align-items:baseline;font-size:.8rem;}
+.rule-item .from{color:#f87171;text-decoration:line-through;}
+.rule-item .to{color:var(--green);}
+/* Nav */
+.nav-link{font-size:.8rem;color:var(--muted);text-align:center;margin-top:-.25rem;}
+.nav-link a{color:var(--ah);text-decoration:none;}
+.nav-link a:hover{text-decoration:underline;}
+footer{padding:1.25rem;text-align:center;border-top:1px solid var(--border);
+  color:var(--muted);font-size:.82rem;margin-top:.5rem;}
+footer a{color:var(--ah);text-decoration:none;}
+footer a:hover{text-decoration:underline;}
+</style>
+</head>
+<body>
+<header>
+  <h1>🇹🇼 台灣好寫 TW Writer</h1>
+  <p>任何語言 → 台灣慣用繁體中文。改寫 / 潤稿 / 縮短，一鍵完成。</p>
+  <div class="badge-row">
+    <span class="badge">✅ 台灣正體中文</span>
+    <span class="badge red">❌ 嚴禁簡體字</span>
+    <span class="badge red">❌ 嚴禁中國大陸用語</span>
+    <span class="badge red">❌ 嚴禁港澳用語</span>
+    <span class="badge">🌏 接受任意語言輸入</span>
+  </div>
+</header>
+<div class="main">
+
+  <!-- Nav back -->
+  <div class="nav-link">← <a href="index.html">Pollinations Arena（多模型比較）</a></div>
+
+  <!-- Account bar -->
+  <div class="account-bar">
+    <span id="acct-st" class="st">未連結 — 使用匿名免費額度</span>
+    <button id="acct-connect" class="btn-sm">連結 Pollinations 帳號 ›</button>
+    <button id="acct-dc" class="btn-sm" style="display:none">中斷連結</button>
+    <span style="color:var(--muted);font-size:.77rem;">連結後消耗您自己的 pollen 餘額。</span>
+  </div>
+
+  <!-- Mode bar -->
+  <div class="mode-bar">
+    <span>模式：</span>
+    <button class="mode-btn active" data-mode="rewrite">改寫</button>
+    <button class="mode-btn" data-mode="polish">潤稿</button>
+    <button class="mode-btn" data-mode="shorten">縮短</button>
+    <select class="tone-sel" id="tone">
+      <option value="neutral">語氣：中性（預設）</option>
+      <option value="formal">正式（公文/報告）</option>
+      <option value="casual">日常（朋友溝通）</option>
+      <option value="business">商業（提案/簡報）</option>
+      <option value="social">社群（IG/FB 貼文）</option>
+    </select>
+  </div>
+
+  <!-- Editor row -->
+  <div class="editor-row">
+    <div class="pane">
+      <label>原文輸入（任意語言皆可）</label>
+      <textarea id="input-text" placeholder="貼上任意文字 — 英文、日文、中文（含簡體）、或混合語言均可。"></textarea>
+    </div>
+    <div class="pane">
+      <label>台灣繁中輸出</label>
+      <div class="output-box placeholder" id="output-box">結果將在此顯示。</div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="bottom-row">
+    <button id="go">✦ 轉換</button>
+    <button id="copy-btn" style="display:none">複製結果</button>
+    <div class="model-row">
+      <label>模型：</label>
+      <select id="model-sel">
+        <option value="openai">OpenAI (GPT-4.1)</option>
+        <option value="claude" selected>Claude Sonnet</option>
+        <option value="claude-sonnet-5">Claude Sonnet 5</option>
+        <option value="gemini">Gemini</option>
+        <option value="deepseek">DeepSeek</option>
+        <option value="openai-fast">GPT-4.1 nano（快速）</option>
+      </select>
+    </div>
+    <span class="hint">Ctrl+Enter 送出</span>
+  </div>
+  <div class="meta-line" id="meta-line"></div>
+
+  <!-- Rules reference -->
+  <details>
+    <div class="rules-panel">
+      <summary>📋 常見替換詞對照（展開查看）</summary>
+      <div class="rules-grid">
+        <div class="rule-item"><span class="from">视频/影片(陸)</span><span>→</span><span class="to">影片</span></div>
+        <div class="rule-item"><span class="from">软件/軟件</span><span>→</span><span class="to">軟體</span></div>
+        <div class="rule-item"><span class="from">服务器/服務器</span><span>→</span><span class="to">伺服器</span></div>
+        <div class="rule-item"><span class="from">搜索</span><span>→</span><span class="to">搜尋</span></div>
+        <div class="rule-item"><span class="from">打车/叫车</span><span>→</span><span class="to">叫計程車</span></div>
+        <div class="rule-item"><span class="from">的士/德士</span><span>→</span><span class="to">計程車</span></div>
+        <div class="rule-item"><span class="from">大陸/內地</span><span>→</span><span class="to">中國</span></div>
+        <div class="rule-item"><span class="from">鏈接/链接</span><span>→</span><span class="to">連結</span></div>
+        <div class="rule-item"><span class="from">文件夾/文件夹</span><span>→</span><span class="to">資料夾</span></div>
+        <div class="rule-item"><span class="from">手机</span><span>→</span><span class="to">手機</span></div>
+        <div class="rule-item"><span class="from">互联网</span><span>→</span><span class="to">網際網路</span></div>
+        <div class="rule-item"><span class="from">发布/發佈</span><span>→</span><span class="to">發布</span></div>
+        <div class="rule-item"><span class="from">身份证</span><span>→</span><span class="to">身分證</span></div>
+        <div class="rule-item"><span class="from">知识/知識(陸式)</span><span>→</span><span class="to">知識</span></div>
+        <div class="rule-item"><span class="from">获取/获得</span><span>→</span><span class="to">取得/獲得</span></div>
+        <div class="rule-item"><span class="from">点击/點擊</span><span>→</span><span class="to">點按/點選</span></div>
+        <div class="rule-item"><span class="from">港幣/港元</span><span>→</span><span class="to">港幣</span></div>
+        <div class="rule-item"><span class="from">唔係/係咁/冇</span><span>→</span><span class="to">（改台灣口語）</span></div>
+      </div>
+    </div>
+  </details>
+
+</div>
+<footer>
+  Powered by <a href="https://pollinations.ai" target="_blank" rel="noopener">Pollinations.ai</a>
+  &nbsp;·&nbsp;
+  <a href="index.html">Pollinations Arena 多模型比較 →</a>
+  <br>
+  <a href="https://pollinations.ai" target="_blank" rel="noopener">
+    <img style="margin:.5rem 0 0;vertical-align:middle"
+         src="https://img.shields.io/badge/Built%20with-Pollinations%20AI-3b82f6?style=for-the-badge"
+         alt="Built with Pollinations AI">
+  </a>
+</footer>
+<script>
+(function () {
+  'use strict';
+
+  var APP_KEY  = 'pk_bC4OPK84rwZ04yMu';
+  var REDIRECT = location.href.split('?')[0].split('#')[0];
+  var LS_KEY   = 'pollinations_user_key';
+  var API_URL  = 'https://gen.pollinations.ai/v1/chat/completions';
+
+  // ── Mode prompts ────────────────────────────────────────────────────────
+  var MODE_PROMPTS = {
+    rewrite:
+      '請將以下文字【改寫】成流暢自然的台灣繁體中文。'
+      + '允許調整措辭與結構，但必須保留原意。',
+    polish:
+      '請對以下文字進行【潤稿】，使其更通順、更道地，保留原有結構與主要措辭，'
+      + '修正語病並讓行文更自然。以台灣繁體中文輸出。',
+    shorten:
+      '請將以下文字【精簡縮短】，去除冗詞贅句，保留核心資訊，'
+      + '長度縮短至原文的 50-70%。以台灣繁體中文輸出。',
+  };
+
+  var TONE_SUFFIX = {
+    neutral:  '',
+    formal:   '語氣請使用正式書面用語，適合公文或正式報告。',
+    casual:   '語氣請輕鬆日常，像朋友之間的對話。',
+    business: '語氣請專業且具說服力，適合商業提案或簡報。',
+    social:   '語氣活潑，適合社群媒體（Instagram / Facebook）貼文，可加入適當的親切感。',
+  };
+
+  // ── System prompt ───────────────────────────────────────────────────────
+  var SYSTEM = [
+    '你是一位精通台灣繁體中文的專業文字編輯。你的任務是依使用者指示改寫、潤稿或縮短文字。',
+    '',
+    '【強制規則，一律遵守，違反即失格】',
+    '1. 輸出語言：台灣正體中文（繁體字），任何情況下禁止輸出簡體字。',
+    '2. 詞彙來源：一律使用台灣慣用語。嚴格禁止使用中國大陸、香港、澳門地區的特有詞彙或表達方式。',
+    '3. 禁用詞彙示例（不限於此）：',
+    '   - 陸式：软件→軟體、服务器→伺服器、搜索→搜尋、视频→影片、打车→叫計程車、',
+    '     鏈接→連結、文件夾→資料夾、点击→點按、内容→內容（注意正體用字）、',
+    '     获取→取得、发布/發佈→發布、身份证→身分證、互联网→網際網路、',
+    '     大陸/内地→中國、滴滴/叫车→叫計程車、知乎/微博/微信（若出現應說明平台性質）。',
+    '   - 港式：的士→計程車、唔係/冇/係咁→（改台灣口語）、巴士→公車或客運、',
+    '     港幣/港元（若不涉及港幣金額，以台幣或元替代語境措辭）。',
+    '4. 若原文為英文、日文或其他語言，翻譯時同樣遵守以上規則，輸出純台灣繁中。',
+    '5. 只輸出改寫／潤稿／縮短後的正文，不要加前言、說明或引號包裹。',
+  ].join('\n');
+
+  // ── OAuth callback ──────────────────────────────────────────────────────
+  (function handleCallback() {
+    var h = location.hash.slice(1);
+    if (!h) return;
+    var k = new URLSearchParams(h).get('api_key');
+    if (k) {
+      localStorage.setItem(LS_KEY, k);
+      history.replaceState(null, '', location.pathname + location.search);
+    }
+  }());
+
+  function getUserKey() { return localStorage.getItem(LS_KEY); }
+
+  // ── Account UI ──────────────────────────────────────────────────────────
+  var stEl    = document.getElementById('acct-st');
+  var connBtn = document.getElementById('acct-connect');
+  var dcBtn   = document.getElementById('acct-dc');
+
+  function updateAccountUI() {
+    var k = getUserKey();
+    if (k) {
+      stEl.textContent = '✔ 已連結 — 使用您的 pollen 餘額';
+      stEl.className   = 'st on';
+      connBtn.style.display = 'none';
+      dcBtn.style.display   = '';
+    } else {
+      stEl.textContent = '未連結 — 使用匿名免費額度';
+      stEl.className   = 'st';
+      connBtn.style.display = '';
+      dcBtn.style.display   = 'none';
+    }
+  }
+
+  connBtn.onclick = function () {
+    var params = new URLSearchParams({
+      redirect_uri: REDIRECT, client_id: APP_KEY, scope: 'usage',
+    });
+    location.href = 'https://enter.pollinations.ai/authorize?' + params.toString();
+  };
+  dcBtn.onclick = function () { localStorage.removeItem(LS_KEY); updateAccountUI(); };
+
+  // ── Mode buttons ────────────────────────────────────────────────────────
+  var currentMode = 'rewrite';
+  document.querySelectorAll('.mode-btn').forEach(function (btn) {
+    btn.onclick = function () {
+      document.querySelectorAll('.mode-btn').forEach(function (b) {
+        b.classList.remove('active');
+      });
+      btn.classList.add('active');
+      currentMode = btn.dataset.mode;
+    };
+  });
+
+  // ── Convert ─────────────────────────────────────────────────────────────
+  var goBtn     = document.getElementById('go');
+  var copyBtn   = document.getElementById('copy-btn');
+  var inputEl   = document.getElementById('input-text');
+  var outputEl  = document.getElementById('output-box');
+  var metaEl    = document.getElementById('meta-line');
+  var modelSel  = document.getElementById('model-sel');
+  var toneSel   = document.getElementById('tone');
+
+  var lastOutput = '';
+
+  async function convert() {
+    var inputText = inputEl.value.trim();
+    if (!inputText) { inputEl.focus(); return; }
+
+    var mode     = currentMode;
+    var tone     = toneSel.value;
+    var model    = modelSel.value;
+    var userKey  = getUserKey();
+
+    var userPrompt = MODE_PROMPTS[mode]
+      + (TONE_SUFFIX[tone] ? '\n' + TONE_SUFFIX[tone] : '')
+      + '\n\n【原文】\n' + inputText;
+
+    goBtn.disabled    = true;
+    goBtn.textContent = '轉換中…';
+    copyBtn.style.display = 'none';
+    outputEl.className    = 'output-box active';
+    outputEl.innerHTML    = '<span class="spinner"></span> AI 正在處理…';
+    metaEl.textContent    = '';
+    lastOutput = '';
+
+    var t0 = Date.now();
+    try {
+      var headers = { 'Content-Type': 'application/json' };
+      if (userKey) headers['Authorization'] = 'Bearer ' + userKey;
+
+      var res = await fetch(API_URL, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({
+          model:    model,
+          messages: [
+            { role: 'system', content: SYSTEM },
+            { role: 'user',   content: userPrompt },
+          ],
+          stream: true,
+        }),
+      });
+
+      if (!res.ok) {
+        var errTxt = await res.text().catch(function () { return ''; });
+        throw new Error('HTTP ' + res.status + (errTxt ? ': ' + errTxt.slice(0, 120) : ''));
+      }
+
+      var reader  = res.body.getReader();
+      var decoder = new TextDecoder();
+      var buf = '', text = '', firstChunk = true;
+
+      while (true) {
+        var chunk = await reader.read();
+        if (chunk.done) break;
+        buf += decoder.decode(chunk.value, { stream: true });
+        var lines = buf.split('\n');
+        buf = lines.pop();
+
+        for (var li = 0; li < lines.length; li++) {
+          var line = lines[li].trim();
+          if (!line.startsWith('data: ')) continue;
+          var data = line.slice(6);
+          if (data === '[DONE]') continue;
+          try {
+            var parsed = JSON.parse(data);
+            var delta  = (parsed.choices &&
+                          parsed.choices[0] &&
+                          parsed.choices[0].delta &&
+                          parsed.choices[0].delta.content) || '';
+            if (delta) {
+              if (firstChunk) { outputEl.className = 'output-box'; firstChunk = false; }
+              text += delta;
+              outputEl.textContent = text;
+            }
+          } catch (e) { /* ignore */ }
+        }
+      }
+
+      var elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+      metaEl.textContent = model + ' · ' + elapsed + 's'
+        + (userKey ? ' · 您的 pollen' : ' · 匿名免費');
+
+      if (!text.trim()) {
+        outputEl.textContent = '（無回應，請換個模型或稍後再試）';
+      } else {
+        lastOutput = text;
+        copyBtn.style.display = '';
+      }
+    } catch (err) {
+      outputEl.className = 'output-box';
+      outputEl.innerHTML = '<span class="err-text">⚠ ' + err.message + '</span>';
+    }
+
+    goBtn.disabled    = false;
+    goBtn.textContent = '✦ 轉換';
+  }
+
+  goBtn.onclick = convert;
+  inputEl.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') convert();
+  });
+
+  copyBtn.onclick = function () {
+    if (!lastOutput) return;
+    navigator.clipboard.writeText(lastOutput).then(function () {
+      var orig = copyBtn.textContent;
+      copyBtn.textContent = '✔ 已複製！';
+      setTimeout(function () { copyBtn.textContent = orig; }, 1800);
+    });
+  };
+
+  // ── Init ────────────────────────────────────────────────────────────────
+  updateAccountUI();
+}());
+</script>
+</body>
+</html>

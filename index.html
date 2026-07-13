@@ -141,21 +141,14 @@ footer a:hover{text-decoration:underline;}
   var LS_KEY   = 'pollinations_user_key';
   var API_URL  = 'https://gen.pollinations.ai/v1/chat/completions';
 
+  // ✅ Free = anonymous tier (0 pollen).  🌸 = Quest pollen (user's own; lighter models only)
   var MODELS = [
-    { id: 'openai',            label: 'OpenAI (GPT-4.1)' },
-    { id: 'openai-fast',       label: 'OpenAI Fast (GPT-4.1 nano)' },
-    { id: 'gpt-5.4',           label: 'GPT-5.4' },
-    { id: 'gpt-5.4-mini',      label: 'GPT-5.4 Mini' },
-    { id: 'deepseek',          label: 'DeepSeek' },
-    { id: 'deepseek-pro',      label: 'DeepSeek Pro' },
-    { id: 'grok',              label: 'Grok' },
-    { id: 'gemini-3-flash',    label: 'Gemini 3 Flash' },
-    { id: 'gemini',            label: 'Gemini' },
-    { id: 'perplexity-fast',   label: 'Perplexity Fast' },
-    { id: 'perplexity',        label: 'Perplexity' },
-    { id: 'qwen-coder',        label: 'Qwen Coder' },
-    { id: 'mistral-small-3.2', label: 'Mistral Small 3.2' },
-    { id: 'mercury',           label: 'Mercury' },
+    { id: 'openai-fast',       label: '✅ GPT-OSS 20B (Free — OVH, no pollen)' },
+    { id: 'gemini-3-flash',    label: '🌸 Gemini 3 Flash (Quest pollen)' },
+    { id: 'deepseek',          label: '🌸 DeepSeek (Quest pollen)' },
+    { id: 'qwen-coder',        label: '🌸 Qwen Coder (Quest pollen)' },
+    { id: 'mistral-small-3.2', label: '🌸 Mistral Small 3.2 (Quest pollen)' },
+    { id: 'mercury',           label: '🌸 Mercury (Quest pollen)' },
   ];
 
   // ── OAuth callback: handle #api_key= in URL hash ────────────────────────
@@ -180,7 +173,7 @@ footer a:hover{text-decoration:underline;}
         var o = document.createElement('option');
         o.value = m.id;
         o.textContent = m.label;
-        if (j === (i === 0 ? 0 : 3)) o.selected = true; // A=OpenAI, B=DeepSeek
+        if (j === (i === 0 ? 0 : 1)) o.selected = true; // A=GPT-OSS(Free), B=Gemini Flash
         sel.appendChild(o);
       });
     });

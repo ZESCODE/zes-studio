@@ -3,310 +3,323 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pollinations Image Studio — free AI image generation</title>
-<meta name="description" content="A free, no-key, in-browser AI image studio powered by Pollinations.ai. Pick a model (flux / zimage / klein), describe an image, get a result in seconds.">
-<meta property="og:title" content="Pollinations Image Studio">
-<meta property="og:description" content="Free AI image generation in your browser. Powered by Pollinations.ai (gen.pollinations.ai).">
-<meta property="og:type" content="website">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%B8%3C/text%3E%3C/svg%3E">
+<title>Pollinations Arena — Multi-Model Chat Comparison</title>
+<meta name="description" content="Compare responses from multiple AI models side-by-side. Powered by Pollinations.ai.">
 <style>
-  :root {
-    --bg: #0f0f14;
-    --panel: #1a1a23;
-    --border: #2a2a36;
-    --accent: #8a2be2;
-    --accent-hover: #a44bff;
-    --text: #e6e6ef;
-    --muted: #8a8a99;
-    --error: #ff6464;
-  }
-  * { box-sizing: border-box; }
-  html, body {
-    margin: 0;
-    padding: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    line-height: 1.5;
-  }
-  header {
-    padding: 2rem 1.5rem 1rem;
-    text-align: center;
-    border-bottom: 1px solid var(--border);
-  }
-  header h1 {
-    margin: 0 0 0.4rem;
-    font-size: clamp(1.6rem, 4vw, 2.4rem);
-    background: linear-gradient(90deg, #8a2be2, #c084fc);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-  header p {
-    margin: 0;
-    color: var(--muted);
-    font-size: 0.95rem;
-  }
-  main {
-    max-width: 880px;
-    margin: 0 auto;
-    padding: 1.5rem;
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 1.25rem;
-  }
-  .panel {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.25rem;
-  }
-  label {
-    display: block;
-    font-size: 0.85rem;
-    color: var(--muted);
-    margin-bottom: 0.35rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-  textarea, input[type="number"], select {
-    width: 100%;
-    background: #0a0a10;
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 0.65rem 0.8rem;
-    font-size: 1rem;
-    font-family: inherit;
-    transition: border-color .15s;
-  }
-  textarea:focus, input:focus, select:focus {
-    outline: none;
-    border-color: var(--accent);
-  }
-  textarea {
-    resize: vertical;
-    min-height: 80px;
-  }
-  .row {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 0.8rem;
-    margin-top: 0.9rem;
-  }
-  button.generate {
-    width: 100%;
-    margin-top: 1rem;
-    background: var(--accent);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    padding: 0.85rem;
-    font-size: 1.05rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background .15s;
-  }
-  button.generate:hover { background: var(--accent-hover); }
-  button.generate:disabled { background: #444; cursor: not-allowed; }
-  .result {
-    text-align: center;
-    min-height: 200px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    gap: 0.8rem;
-  }
-  .result img {
-    max-width: 100%;
-    max-height: 70vh;
-    border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
-  }
-  .result .placeholder { color: var(--muted); }
-  .spinner {
-    width: 36px;
-    height: 36px;
-    border: 3px solid var(--border);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .error {
-    color: var(--error);
-    font-size: 0.95rem;
-    word-break: break-word;
-  }
-  .meta {
-    font-size: 0.8rem;
-    color: var(--muted);
-    word-break: break-all;
-  }
-  footer {
-    padding: 1.5rem;
-    text-align: center;
-    border-top: 1px solid var(--border);
-    color: var(--muted);
-    font-size: 0.85rem;
-  }
-  footer a { color: var(--accent-hover); text-decoration: none; }
-  footer a:hover { text-decoration: underline; }
-  .badge { display: inline-block; margin: 0.4rem 0.3rem; vertical-align: middle; }
+:root{
+  --bg:#0f0f14;--panel:#1a1a23;--panel2:#13131c;
+  --border:#2a2a36;--accent:#f59e0b;--ah:#fbbf24;
+  --text:#e6e6ef;--muted:#8a8a99;--err:#ff6464;
+  --green:#4ade80;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  line-height:1.6;}
+header{padding:1.5rem 1.5rem 1rem;text-align:center;border-bottom:1px solid var(--border);}
+header h1{margin:0 0 .3rem;font-size:clamp(1.4rem,3.5vw,2rem);
+  background:linear-gradient(90deg,#f59e0b,#ec4899);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+header p{margin:0;color:var(--muted);font-size:.9rem;}
+.main{max-width:1200px;margin:0 auto;padding:1.25rem;display:flex;flex-direction:column;gap:1rem;}
+/* Account bar */
+.account-bar{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+  padding:.85rem 1.1rem;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;font-size:.85rem;}
+.account-bar .st{flex:1;color:var(--muted);}
+.account-bar .st.on{color:var(--green);}
+.btn-sm{background:none;border:1px solid var(--border);color:var(--text);
+  border-radius:6px;padding:.28rem .7rem;font-size:.82rem;cursor:pointer;transition:border-color .15s,color .15s;}
+.btn-sm:hover{border-color:var(--accent);color:var(--accent);}
+/* Input */
+.input-area{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:1.25rem;}
+.input-area label{font-size:.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;
+  display:block;margin-bottom:.4rem;}
+textarea{width:100%;background:#0a0a10;color:var(--text);border:1px solid var(--border);
+  border-radius:8px;padding:.7rem .9rem;font-size:1rem;font-family:inherit;resize:vertical;min-height:90px;}
+textarea:focus{outline:none;border-color:var(--accent);}
+.controls{display:flex;gap:.75rem;align-items:center;margin-top:.75rem;flex-wrap:wrap;}
+button#go{background:var(--accent);color:#000;border:none;border-radius:8px;
+  padding:.65rem 1.6rem;font-size:1rem;font-weight:700;cursor:pointer;transition:background .15s;}
+button#go:hover{background:var(--ah);}
+button#go:disabled{background:#3a3a3a;color:#666;cursor:not-allowed;}
+.hint{font-size:.82rem;color:var(--muted);}
+/* Arena */
+.arena{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+@media(max-width:680px){.arena{grid-template-columns:1fr;}}
+.model-panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;
+  padding:1.25rem;display:flex;flex-direction:column;gap:.75rem;}
+.model-panel .head{display:flex;align-items:center;gap:.6rem;}
+.model-panel select{flex:1;background:#0a0a10;color:var(--text);
+  border:1px solid var(--border);border-radius:7px;padding:.5rem .7rem;font-size:.9rem;font-family:inherit;}
+.model-panel select:focus{outline:none;border-color:var(--accent);}
+.model-badge{font-size:.72rem;padding:.2rem .55rem;border-radius:20px;background:var(--border);color:var(--muted);}
+.response-box{background:var(--panel2);border:1px solid var(--border);border-radius:8px;
+  padding:.9rem 1rem;min-height:200px;font-size:.93rem;line-height:1.75;white-space:pre-wrap;
+  word-break:break-word;overflow-y:auto;max-height:65vh;transition:border-color .2s;}
+.response-box.active{border-color:var(--accent);}
+.response-box.placeholder{display:flex;align-items:center;justify-content:center;color:var(--muted);}
+.err-text{color:var(--err);}
+.spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--border);
+  border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;
+  vertical-align:middle;margin-right:.5rem;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.meta-line{font-size:.75rem;color:var(--muted);min-height:1.1em;}
+/* Footer */
+footer{padding:1.25rem;text-align:center;border-top:1px solid var(--border);
+  color:var(--muted);font-size:.82rem;margin-top:.5rem;}
+footer a{color:var(--ah);text-decoration:none;}
+footer a:hover{text-decoration:underline;}
 </style>
 </head>
 <body>
-
 <header>
-  <h1>🌸 Pollinations Image Studio</h1>
-  <p>Free AI image generation in your browser. No sign-up required to try.</p>
+  <h1>🏟 Pollinations Arena</h1>
+  <p>Pick two AI models, ask anything, see responses side by side — free &amp; open.</p>
 </header>
+<div class="main">
 
-<main>
-  <section class="panel">
-    <label for="prompt">Prompt</label>
-    <textarea id="prompt" placeholder="a calico cat surfing on a glowing wave at sunset, photorealistic">a calico cat surfing on a glowing wave at sunset, photorealistic</textarea>
+  <div class="account-bar">
+    <span id="acct-st" class="st">Not connected — anonymous free tier</span>
+    <button id="acct-connect" class="btn-sm">Connect Pollinations account ›</button>
+    <button id="acct-dc" class="btn-sm" style="display:none">Disconnect</button>
+    <span style="color:var(--muted);font-size:.77rem;">Connect to use your own pollen balance.</span>
+  </div>
 
-    <div class="row">
-      <div>
-        <label for="model">Model</label>
-        <select id="model">
-          <option value="flux" selected>flux — photorealistic, versatile</option>
-          <option value="zimage">zimage — artistic, stylized</option>
-          <option value="klein">klein — fast, creative</option>
-        </select>
-      </div>
-      <div>
-        <label for="width">Width</label>
-        <input id="width" type="number" min="64" max="2048" step="64" value="1024">
-      </div>
-      <div>
-        <label for="height">Height</label>
-        <input id="height" type="number" min="64" max="2048" step="64" value="1024">
-      </div>
+  <div class="input-area">
+    <label>Prompt / Question</label>
+    <textarea id="prompt" placeholder="Ask anything — explain quantum entanglement, write a haiku, debug Python code, compare two ideas..."></textarea>
+    <div class="controls">
+      <button id="go">⚡ Compare</button>
+      <span class="hint">Ctrl+Enter to submit</span>
     </div>
+  </div>
 
-    <button id="go" class="generate">Generate ✨</button>
-  </section>
+  <div class="arena">
+    <div class="model-panel">
+      <div class="head">
+        <select id="model-a"></select>
+        <span class="model-badge">A</span>
+      </div>
+      <div class="response-box placeholder" id="resp-a">Response A will appear here.</div>
+      <div class="meta-line" id="meta-a"></div>
+    </div>
+    <div class="model-panel">
+      <div class="head">
+        <select id="model-b"></select>
+        <span class="model-badge">B</span>
+      </div>
+      <div class="response-box placeholder" id="resp-b">Response B will appear here.</div>
+      <div class="meta-line" id="meta-b"></div>
+    </div>
+  </div>
 
-  <section class="panel result" id="result">
-    <p class="placeholder">Your image will appear here.</p>
-  </section>
-</main>
-
+</div>
 <footer>
-  <a href="https://pollinations.ai" target="_blank" rel="noopener">
-    <img class="badge" src="https://img.shields.io/badge/Built%20with-Pollinations-8a2be2?style=for-the-badge" alt="Built with Pollinations">
-  </a>
-  <br>
   Powered by <a href="https://pollinations.ai" target="_blank" rel="noopener">Pollinations.ai</a>
   &nbsp;·&nbsp;
   <a href="https://github.com/housir2001/pollinations-image-demo" target="_blank" rel="noopener">Source on GitHub</a>
   &nbsp;·&nbsp;
-  <a href="https://enter.pollinations.ai" target="_blank" rel="noopener">Get an API key</a>
+  <a href="https://enter.pollinations.ai" target="_blank" rel="noopener">Get API key</a>
+  <br>
+  <a href="https://pollinations.ai" target="_blank" rel="noopener">
+    <img style="margin:.5rem 0 0;vertical-align:middle"
+         src="https://img.shields.io/badge/Built%20with-Pollinations%20AI-f59e0b?style=for-the-badge"
+         alt="Built with Pollinations AI">
+  </a>
 </footer>
-
 <script>
 (function () {
-  // Two endpoints, fail-open ordering:
-  //   1. gen.pollinations.ai  — the new unified endpoint. Browser auth is via
-  //      Referer once this app's domain is registered at enter.pollinations.ai.
-  //   2. image.pollinations.ai — the legacy public mirror; serves anonymously.
-  //      Used as a fallback so the demo works for first-time visitors before
-  //      the app domain is registered.
-  const GEN_BASE = 'https://gen.pollinations.ai/image';
-  const LEGACY_BASE = 'https://image.pollinations.ai/prompt';
-  const REFERRER = 'pollinations-image-demo';
+  'use strict';
 
-  const $ = (id) => document.getElementById(id);
-  const promptEl = $('prompt');
-  const modelEl = $('model');
-  const widthEl = $('width');
-  const heightEl = $('height');
-  const goBtn = $('go');
-  const resultEl = $('result');
+  // ── Config ─────────────────────────────────────────────────────────────────
+  var APP_KEY  = 'pk_bC4OPK84rwZ04yMu';
+  var REDIRECT = location.href.split('?')[0].split('#')[0];
+  var LS_KEY   = 'pollinations_user_key';
+  var API_URL  = 'https://gen.pollinations.ai/v1/chat/completions';
 
-  function buildUrl(base, prompt, model, w, h) {
-    const params = new URLSearchParams({
-      model,
-      width: String(w),
-      height: String(h),
-      nologo: 'true',
-      enhance: 'false',
-      referrer: REFERRER,
+  var MODELS = [
+    { id: 'openai',            label: 'OpenAI (GPT-4.1)' },
+    { id: 'openai-fast',       label: 'OpenAI Fast (GPT-4.1 nano)' },
+    { id: 'gpt-5.4',           label: 'GPT-5.4' },
+    { id: 'gpt-5.4-mini',      label: 'GPT-5.4 Mini' },
+    { id: 'claude-fast',       label: 'Claude Fast (Haiku)' },
+    { id: 'claude',            label: 'Claude Sonnet' },
+    { id: 'claude-sonnet-5',   label: 'Claude Sonnet 5' },
+    { id: 'deepseek',          label: 'DeepSeek' },
+    { id: 'deepseek-pro',      label: 'DeepSeek Pro' },
+    { id: 'grok',              label: 'Grok' },
+    { id: 'gemini-3-flash',    label: 'Gemini 3 Flash' },
+    { id: 'gemini',            label: 'Gemini' },
+    { id: 'perplexity-fast',   label: 'Perplexity Fast' },
+    { id: 'perplexity',        label: 'Perplexity' },
+    { id: 'qwen-coder',        label: 'Qwen Coder' },
+    { id: 'mistral-small-3.2', label: 'Mistral Small 3.2' },
+    { id: 'mercury',           label: 'Mercury' },
+  ];
+
+  // ── OAuth callback: handle #api_key= in URL hash ────────────────────────
+  (function handleCallback() {
+    var h = location.hash.slice(1);
+    if (!h) return;
+    var params = new URLSearchParams(h);
+    var key = params.get('api_key');
+    if (key) {
+      localStorage.setItem(LS_KEY, key);
+      history.replaceState(null, '', location.pathname + location.search);
+    }
+  }());
+
+  function getUserKey() { return localStorage.getItem(LS_KEY); }
+
+  // ── Build model selects ──────────────────────────────────────────────────
+  function buildSelects() {
+    ['model-a', 'model-b'].forEach(function (id, i) {
+      var sel = document.getElementById(id);
+      MODELS.forEach(function (m, j) {
+        var o = document.createElement('option');
+        o.value = m.id;
+        o.textContent = m.label;
+        if (j === (i === 0 ? 0 : 3)) o.selected = true; // A=OpenAI, B=DeepSeek
+        sel.appendChild(o);
+      });
     });
-    return `${base}/${encodeURIComponent(prompt)}?${params}`;
   }
 
-  function showLoading(url) {
-    resultEl.innerHTML = `
-      <div class="spinner"></div>
-      <p class="placeholder">Generating… (typically 5–20 s)</p>
-      <p class="meta">${url}</p>`;
-  }
+  // ── Account UI ──────────────────────────────────────────────────────────
+  var stEl      = document.getElementById('acct-st');
+  var connBtn   = document.getElementById('acct-connect');
+  var dcBtn     = document.getElementById('acct-dc');
 
-  function showImage(blobUrl, sourceUrl, sourceLabel) {
-    resultEl.innerHTML = `
-      <img src="${blobUrl}" alt="Generated image">
-      <p class="meta">via ${sourceLabel} · ${sourceUrl}</p>`;
-  }
-
-  function showError(message, url) {
-    resultEl.innerHTML = `
-      <p class="error">⚠️ ${message}</p>
-      <p class="meta">${url || ''}</p>
-      <p class="placeholder">Try a shorter prompt or different model. If this persists, sign in at <a href="https://enter.pollinations.ai" target="_blank" rel="noopener" style="color:var(--accent-hover)">enter.pollinations.ai</a>.</p>`;
-  }
-
-  async function fetchImage(base, label, prompt, model, w, h) {
-    const url = buildUrl(base, prompt, model, w, h);
-    const res = await fetch(url, { method: 'GET' });
-    if (!res.ok) {
-      return { ok: false, status: res.status, url, label };
+  function updateAccountUI() {
+    var k = getUserKey();
+    if (k) {
+      stEl.textContent  = '✔ Connected — using your pollen balance';
+      stEl.className    = 'st on';
+      connBtn.style.display = 'none';
+      dcBtn.style.display   = '';
+    } else {
+      stEl.textContent  = 'Not connected — anonymous free tier';
+      stEl.className    = 'st';
+      connBtn.style.display = '';
+      dcBtn.style.display   = 'none';
     }
-    const blob = await res.blob();
-    return { ok: true, blobUrl: URL.createObjectURL(blob), url, label };
   }
 
-  async function generate() {
-    const prompt = promptEl.value.trim();
-    if (!prompt) {
-      showError('Please enter a prompt.');
-      return;
-    }
-    const model = modelEl.value;
-    const w = Math.max(64, Math.min(2048, parseInt(widthEl.value, 10) || 1024));
-    const h = Math.max(64, Math.min(2048, parseInt(heightEl.value, 10) || 1024));
+  connBtn.onclick = function () {
+    var params = new URLSearchParams({
+      redirect_uri: REDIRECT,
+      client_id:    APP_KEY,
+      scope:        'usage',
+    });
+    location.href = 'https://enter.pollinations.ai/authorize?' + params.toString();
+  };
+  dcBtn.onclick = function () { localStorage.removeItem(LS_KEY); updateAccountUI(); };
 
-    goBtn.disabled = true;
-    showLoading(buildUrl(GEN_BASE, prompt, model, w, h));
+  // ── Streaming fetch + render ────────────────────────────────────────────
+  async function streamModel(model, prompt, userKey, respEl, metaEl) {
+    respEl.className = 'response-box active';
+    respEl.innerHTML = '<span class="spinner"></span> Thinking…';
+    metaEl.textContent = '';
 
+    var t0 = Date.now();
     try {
-      // 1. Try the new gen.pollinations.ai endpoint first.
-      let result = await fetchImage(GEN_BASE, 'gen.pollinations.ai', prompt, model, w, h);
-      // 2. Fall back to legacy anonymous endpoint on auth/rate failures.
-      if (!result.ok && [401, 402, 403, 429].includes(result.status)) {
-        showLoading(buildUrl(LEGACY_BASE, prompt, model, w, h));
-        result = await fetchImage(LEGACY_BASE, 'image.pollinations.ai (anonymous)', prompt, model, w, h);
+      var headers = { 'Content-Type': 'application/json' };
+      if (userKey) headers['Authorization'] = 'Bearer ' + userKey;
+
+      var res = await fetch(API_URL, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({
+          model:    model,
+          messages: [{ role: 'user', content: prompt }],
+          stream:   true,
+        }),
+      });
+
+      if (!res.ok) {
+        var errTxt = await res.text().catch(function () { return ''; });
+        throw new Error('HTTP ' + res.status + (errTxt ? ': ' + errTxt.slice(0, 120) : ''));
       }
-      if (!result.ok) {
-        throw new Error(`HTTP ${result.status} from both endpoints`);
+
+      var reader  = res.body.getReader();
+      var decoder = new TextDecoder();
+      var buf = '', text = '', firstChunk = true;
+
+      while (true) {
+        var chunk = await reader.read();
+        if (chunk.done) break;
+        buf += decoder.decode(chunk.value, { stream: true });
+        var lines = buf.split('\n');
+        buf = lines.pop();
+
+        for (var li = 0; li < lines.length; li++) {
+          var line = lines[li].trim();
+          if (!line.startsWith('data: ')) continue;
+          var data = line.slice(6);
+          if (data === '[DONE]') continue;
+          try {
+            var parsed = JSON.parse(data);
+            var delta  = (parsed.choices &&
+                          parsed.choices[0] &&
+                          parsed.choices[0].delta &&
+                          parsed.choices[0].delta.content) || '';
+            if (delta) {
+              if (firstChunk) { respEl.className = 'response-box'; firstChunk = false; }
+              text += delta;
+              respEl.textContent = text;
+            }
+          } catch (e) { /* ignore malformed SSE */ }
+        }
       }
-      showImage(result.blobUrl, result.url, result.label);
+
+      var elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+      metaEl.textContent = model + ' · ' + elapsed + 's'
+        + (userKey ? ' · your pollen' : ' · anonymous');
+
+      if (!text.trim()) respEl.textContent = '(empty response)';
     } catch (err) {
-      showError(err.message || String(err));
-    } finally {
-      goBtn.disabled = false;
+      respEl.className = 'response-box';
+      respEl.innerHTML = '<span class="err-text">⚠ ' + err.message + '</span>';
     }
   }
 
-  goBtn.addEventListener('click', generate);
-  promptEl.addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') generate();
-  });
-})();
-</script>
+  // ── Compare ─────────────────────────────────────────────────────────────
+  var goBtn    = document.getElementById('go');
+  var promptEl = document.getElementById('prompt');
 
+  async function compare() {
+    var prompt = promptEl.value.trim();
+    if (!prompt) { promptEl.focus(); return; }
+
+    var modelA   = document.getElementById('model-a').value;
+    var modelB   = document.getElementById('model-b').value;
+    var userKey  = getUserKey();
+
+    goBtn.disabled  = true;
+    goBtn.textContent = 'Running…';
+
+    await Promise.all([
+      streamModel(modelA, prompt, userKey,
+        document.getElementById('resp-a'),
+        document.getElementById('meta-a')),
+      streamModel(modelB, prompt, userKey,
+        document.getElementById('resp-b'),
+        document.getElementById('meta-b')),
+    ]);
+
+    goBtn.disabled   = false;
+    goBtn.textContent = '⚡ Compare';
+  }
+
+  goBtn.onclick = compare;
+  promptEl.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') compare();
+  });
+
+  // ── Init ────────────────────────────────────────────────────────────────
+  buildSelects();
+  updateAccountUI();
+}());
+</script>
 </body>
 </html>

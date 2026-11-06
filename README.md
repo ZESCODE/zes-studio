@@ -59,6 +59,10 @@ video project costs almost no extra disk.
 | `GET` | `/api/render/:id` | job status, `progress` 0–100, `message`, `file` |
 | `DELETE` | `/api/render/:id` | cancel a running job |
 | `GET` | `/api/renders` | list finished renders |
+
+Finished renders are automatically copied to `/storage/emulated/0/Movies`
+(photo-gallery visible). Disable with `NO_MOVIE_EXPORT=1` or redirect with
+`MOVIES_DIR=<path>`.
 | `GET` | `/renders/:file.mp4` | stream video (supports HTTP `Range`, `?download=1`) |
 
 Render response:

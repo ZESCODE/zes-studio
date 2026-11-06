@@ -15,6 +15,8 @@ import {OctopusFacts} from "./OctopusFacts";
 import {TOTAL_FRAMES as OC_FRAMES} from "./octopusScript";
 import {OceanFacts} from "./OceanFacts";
 import {TOTAL_FRAMES as OC2_FRAMES} from "./oceanScript";
+import {AmazonFacts} from "./AmazonFacts";
+import {TOTAL_FRAMES as AM_FRAMES} from "./amazonScript";
 import {KineticVideo} from "./KineticVideo";
 import {kineticDefaultProps, kineticSchema} from "./kinetic";
 
@@ -87,6 +89,14 @@ export const RemotionRoot: React.FC = () => {
       id="OceanFacts"
       component={OceanFacts}
       durationInFrames={OC2_FRAMES}
+      fps={30}
+      width={1080}
+      height={1920}
+    />
+    <Composition
+      id="AmazonFacts"
+      component={AmazonFacts}
+      durationInFrames={AM_FRAMES}
       fps={30}
       width={1080}
       height={1920}

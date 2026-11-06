@@ -86,6 +86,11 @@ the video is fine — it just cuts off at the end).
   `video/public/kinetic/` and rewritten to static paths** — Remotion only bundles local
   assets. Local `*.jpg/*.png` paths pass through as-is.
 - Only fonts `Anton` and `Inter` are registered; other `fontFamily` values fall back.
+- **Audio:** scene-level `audioSrc` (narration mp3) + optional top-level `music` /
+  `musicVolume`. This repo's narration uses ElevenLabs via 9Router:
+  `POST :20128/v1/audio/speech` with `{"model":"el/<model>/<voiceId>","input":...}` and a
+  gateway key; scripts live in `video/public/audio-ru/` (Russia set, generated 2026-11-06.
+  Re-pad scene durations to `round((narration + 1.5s) × 30)` frames after swapping audio.
 
 Render standalone (demo props ship in `kineticDefaultProps`):
 

@@ -10,6 +10,7 @@ import {
   useCurrentFrame,
   useVideoConfig,
 } from "remotion";
+import {Audio} from "@remotion/media";
 import {KineticProps, KineticScene, KineticTextLayer, parseEasing} from "./kinetic";
 
 const GRAIN =
@@ -335,6 +336,7 @@ export const KineticVideo: React.FC<KineticProps> = (props) => {
   return (
     <AbsoluteFill style={{backgroundColor: "#07030a"}}>
       <TextureDefs />
+      {props.music ? <Audio src={staticFile(props.music)} volume={props.musicVolume} /> : null}
       {props.scenes.map((scene, i) => (
         <Sequence
           key={scene.id}
@@ -342,6 +344,7 @@ export const KineticVideo: React.FC<KineticProps> = (props) => {
           durationInFrames={scene.durationInFrames}
           name={`kinetic-${scene.id}`}
         >
+          {scene.audioSrc ? <Audio src={staticFile(scene.audioSrc)} volume={1} /> : null}
           <SceneEntry>
             <CameraBackground scene={scene} index={i} />
             {scene.textLayers.map((layer, li) => (

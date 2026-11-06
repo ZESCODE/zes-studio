@@ -258,6 +258,7 @@ function sanitizeKinetic(input) {
       startFrame: num(s.startFrame, 0, 100000, 0),
       durationInFrames: num(s.durationInFrames, 1, 100000, 90),
       backgroundImage: bg,
+      audioSrc: /^[\w./-]+\.mp3$/.test(str(s.audioSrc, 120)) ? str(s.audioSrc, 120) : undefined,
       camera: {
         type: ["static", "kenBurns", "parallax", "punchIn"].includes(s.camera?.type)
           ? s.camera.type : "kenBurns",
@@ -312,6 +313,8 @@ function sanitizeKinetic(input) {
     videoTitle: str(input.videoTitle, 200, "UNTITLED"),
     fps: num(input.fps, 15, 60, 30),
     durationInFrames: num(input.durationInFrames, 1, 100000, scenes.reduce((m, s) => Math.max(m, s.startFrame + s.durationInFrames), 0)),
+    music: /^[\w./-]+\.mp3$/.test(str(input.music, 120)) ? str(input.music, 120) : undefined,
+    musicVolume: num(input.musicVolume, 0, 1, 0.12),
     scenes,
   };
 }

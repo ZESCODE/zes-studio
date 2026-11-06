@@ -213,8 +213,14 @@ cd video && node node_modules/@remotion/cli/remotion-cli.js render src/index.ts 
 Notes:
 
 - **Background images:** remote `http(s)` URLs are downloaded by the server into
-  `video/public/kinetic/` and rewritten to static paths (Remotion only bundles local assets);
-  local paths (`scenes/x.jpg`, `kinetic/x.png`) pass through directly.
+  `video/public/kinetic/` and rewritten to static paths (Remotion only bundles local
+  assets); local paths (`scenes/x.jpg`, `kinetic/x.png`) pass through directly.
+- **Audio:** each scene may carry `audioSrc` (a `staticFile` mp3 narration, e.g.
+  `audio-ru/fact1.mp3`), and the payload may set `music` + `musicVolume` for a
+  full-length background bed. Narration in this repo is generated with ElevenLabs
+  voices through 9Router:
+  `POST :20128/v1/audio/speech {"model":"el/eleven_multilingual_v2/<voiceId>","input":"…"}`.
+  Scene `durationInFrames` = `round((narration_seconds + 1.5) × fps)`.
 - **Fonts:** only `Anton` and `Inter` are registered (`video/public/fonts`) — other
   `fontFamily` values fall back to the browser default.
 - **`motionBlur`** (shutter angle): frames render independently, so this drives a small speed-blur

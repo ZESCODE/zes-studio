@@ -65,6 +65,8 @@ export const sceneSchema = z.object({
   // Remote http(s) URLs are pre-downloaded by the server; other values are
   // treated as staticFile() paths inside the video/public directory.
   backgroundImage: z.string(),
+  // Optional narration (staticFile path, e.g. "audio-us/hook.mp3").
+  audioSrc: z.string().optional(),
   camera: cameraSchema.default({}),
   textLayers: z.array(textLayerSchema),
   transitionOut: z
@@ -79,6 +81,9 @@ export const kineticSchema = z.object({
   videoTitle: z.string(),
   fps: z.number().default(30),
   durationInFrames: z.number(),
+  // Optional full-length background music (staticFile path) + volume.
+  music: z.string().optional(),
+  musicVolume: z.number().default(0.12),
   scenes: z.array(sceneSchema).min(1),
 });
 
@@ -101,6 +106,8 @@ export const kineticDefaultProps: KineticProps = {
   videoTitle: "Did Vikings Really Wear Horned Helmets?",
   fps: 30,
   durationInFrames: 1050,
+  music: "audio-us/music.mp3",
+  musicVolume: 0.12,
   scenes: [
     {
       id: "hook",

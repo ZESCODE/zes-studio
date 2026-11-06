@@ -20,6 +20,7 @@ Project at `~/zes-studio/video`. Remotion 4.0.540, 1080×1920 @ 30 fps.
 | `OctopusFacts` | `OctopusFacts.tsx` + `octopusScript.ts` | same template, violet/coral accents; 2401 frames ≈ 80 s; uses `audio-oc/` narration + `kinetic/oc-*.jpg` backgrounds |
 | `OceanFacts` | `OceanFacts.tsx` + `oceanScript.ts` | same template, teal/cyan accents; 2461 frames ≈ 82 s; `audio-ocean/` narration + `geography.mp3` music + `kinetic/o-*.jpg` backgrounds |
 | `AmazonFacts` | `AmazonFacts.tsx` + `amazonScript.ts` | same template, forest-green/gold accents; 2389 frames ≈ 80 s; `audio-am/` narration + `kinetic/am-*.jpg` backgrounds |
+| `JapanFacts` | `JapanFacts.tsx` + `japanScript.ts` | same template, imperial red/gold accents; 2303 frames ≈ 77 s; `audio-jp/` narration + `kinetic/jp-*.jpg` backgrounds |
 | `KineticVideo` | `KineticVideo.tsx` + `kinetic.ts` | props-driven kinetic typography (JSON payload); what `/api/render` auto-detects via `textLayers` |
 
 `video/node_modules` is a **symlink** to `~/shorts-studio/node_modules` (~840 MB).

@@ -17,6 +17,8 @@ import {OceanFacts} from "./OceanFacts";
 import {TOTAL_FRAMES as OC2_FRAMES} from "./oceanScript";
 import {AmazonFacts} from "./AmazonFacts";
 import {TOTAL_FRAMES as AM_FRAMES} from "./amazonScript";
+import {JapanFacts} from "./JapanFacts";
+import {TOTAL_FRAMES as JP_FRAMES} from "./japanScript";
 import {KineticVideo} from "./KineticVideo";
 import {kineticDefaultProps, kineticSchema} from "./kinetic";
 
@@ -97,6 +99,14 @@ export const RemotionRoot: React.FC = () => {
       id="AmazonFacts"
       component={AmazonFacts}
       durationInFrames={AM_FRAMES}
+      fps={30}
+      width={1080}
+      height={1920}
+    />
+    <Composition
+      id="JapanFacts"
+      component={JapanFacts}
+      durationInFrames={JP_FRAMES}
       fps={30}
       width={1080}
       height={1920}

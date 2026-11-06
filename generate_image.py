@@ -9,7 +9,8 @@ the POLLINATIONS_API_KEY env var or the --api-key flag.
 Without a key the script falls back to the public anonymous mirror at
 image.pollinations.ai (lower priority, no SLA).
 
-A matching browser demo lives in index.html (also deployed to GitHub Pages).
+A matching browser UI lives in public/index.html, served by server.mjs
+(the same studio also renders Remotion videos from generated images).
 
 Usage:
   POLLINATIONS_API_KEY=pk_xxx python generate_image.py "a cat surfing on the moon"
@@ -27,9 +28,9 @@ from pathlib import Path
 
 GEN_BASE = "https://gen.pollinations.ai/image"
 ANON_BASE = "https://image.pollinations.ai/prompt"
-REFERRER = "pollinations-image-demo"
+REFERRER = "zes-studio"
 USER_AGENT = (
-    "pollinations-image-demo/2.0 "
+    "zes-studio/1.0 "
     "(+https://github.com/housir2001/pollinations-image-demo)"
 )
 DEFAULT_MODEL = "flux"

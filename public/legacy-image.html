@@ -220,9 +220,10 @@
   //   2. image.pollinations.ai — the legacy public mirror; serves anonymously.
   //      Used as a fallback so the demo works for first-time visitors before
   //      the app domain is registered.
-  const GEN_BASE = 'https://gen.pollinations.ai/image';
-  const LEGACY_BASE = 'https://image.pollinations.ai/prompt';
-  const REFERRER = 'pollinations-image-demo';
+  // Routed through the zes-studio server proxy (/api/image) which fetches
+  // server-side to avoid the browser Origin header -> 403 from pollinations.
+  const PROXY = '/api/image';
+  const REFERRER = 'zes-studio';
 
   const $ = (id) => document.getElementById(id);
   const promptEl = $('prompt');
@@ -232,16 +233,14 @@
   const goBtn = $('go');
   const resultEl = $('result');
 
-  function buildUrl(base, prompt, model, w, h) {
+  function buildUrl(_base, prompt, model, w, h) {
     const params = new URLSearchParams({
+      prompt,
       model,
       width: String(w),
       height: String(h),
-      nologo: 'true',
-      enhance: 'false',
-      referrer: REFERRER,
     });
-    return `${base}/${encodeURIComponent(prompt)}?${params}`;
+    return `${PROXY}?${params}`;
   }
 
   function showLoading(url) {
@@ -285,18 +284,12 @@
     const h = Math.max(64, Math.min(2048, parseInt(heightEl.value, 10) || 1024));
 
     goBtn.disabled = true;
-    showLoading(buildUrl(GEN_BASE, prompt, model, w, h));
+    showLoading(buildUrl(PROXY, prompt, model, w, h));
 
     try {
-      // 1. Try the new gen.pollinations.ai endpoint first.
-      let result = await fetchImage(GEN_BASE, 'gen.pollinations.ai', prompt, model, w, h);
-      // 2. Fall back to legacy anonymous endpoint on auth/rate failures.
-      if (!result.ok && [401, 402, 403, 429].includes(result.status)) {
-        showLoading(buildUrl(LEGACY_BASE, prompt, model, w, h));
-        result = await fetchImage(LEGACY_BASE, 'image.pollinations.ai (anonymous)', prompt, model, w, h);
-      }
+      const result = await fetchImage(PROXY, 'image.pollinations.ai (via proxy)', prompt, model, w, h);
       if (!result.ok) {
-        throw new Error(`HTTP ${result.status} from both endpoints`);
+        throw new Error(`HTTP ${result.status}`);
       }
       showImage(result.blobUrl, result.url, result.label);
     } catch (err) {

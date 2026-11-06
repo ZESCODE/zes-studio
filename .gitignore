@@ -5,3 +5,14 @@
 __pycache__/
 *.pyc
 .env
+
+# generated outputs
+renders/
+logs/
+video/.props/
+
+# symlinked Remotion deps (see README)
+video/node_modules
+
+# narration backups
+video/public/audio-us-old/

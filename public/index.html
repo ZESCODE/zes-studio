@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>ZES Studio — Image + Video</title>
+<meta name="description" content="Free AI image generation (Pollinations) and short-form video rendering (Remotion), in one studio." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8E%AC%3C/text%3E%3C/svg%3E" />
+<style>
+:root{
+  --bg:#07090f; --panel:#0f131c; --panel2:#0a0d14; --border:#1e2634;
+  --blue:#409cff; --violet:#a78bfa; --cyan:#22d3ee; --green:#10d181;
+  --orange:#fb923c; --red:#f85564;
+  --text:#e9f1ff; --muted:#8a97ac; --line:rgba(64,156,255,.18);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;line-height:1.5;
+  -webkit-font-smoothing:antialiased;overscroll-behavior:none}
+body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+   radial-gradient(1000px 640px at 88% -6%,rgba(64,156,255,.16),transparent 58%),
+   radial-gradient(900px 600px at 8% -8%,rgba(120,90,255,.10),transparent 55%),
+   radial-gradient(760px 640px at 92% 108%,rgba(16,209,129,.07),transparent 60%)}
+.wrap{position:relative;z-index:1;max-width:1120px;margin:0 auto;padding:20px 16px 60px}
+
+header.top{display:flex;flex-direction:column;gap:14px;align-items:center;text-align:center;padding:14px 0 6px}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;font-size:22px;
+  background:linear-gradient(140deg,rgba(64,156,255,.25),rgba(167,139,250,.20));
+  border:1px solid rgba(64,156,255,.35);box-shadow:0 0 30px rgba(64,156,255,.25)}
+h1{margin:0;font-size:26px;letter-spacing:-.02em;font-weight:800;
+  background:linear-gradient(90deg,#409cff,#a78bfa,#22d3ee);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{margin:2px 0 0;color:var(--muted);font-size:13px}
+
+.tabs{display:inline-flex;gap:6px;padding:5px;border-radius:14px;background:rgba(255,255,255,.04);
+  border:1px solid var(--border)}
+.tab{border:0;background:none;color:var(--muted);font:inherit;font-weight:600;font-size:14px;
+  padding:9px 20px;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:.15s}
+.tab:hover{color:var(--text)}
+.tab.active{color:#fff;background:linear-gradient(120deg,rgba(64,156,255,.28),rgba(167,139,250,.22));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 6px 24px -10px rgba(64,156,255,.7)}
+.tab .dot{width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.7}
+
+.panel{background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.014));
+  border:1px solid var(--line);border-radius:18px;padding:20px;
+  box-shadow:inset 0 1px 0 rgba(64,156,255,.10),0 24px 60px -34px rgba(0,0,0,.9)}
+.panel + .panel{margin-top:16px}
+.view{display:none}
+.view.active{display:block;animation:fade .3s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+label.f{display:block;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 7px}
+textarea,input[type=text],input[type=number],select{
+  width:100%;background:rgba(0,0,0,.35);color:var(--text);border:1px solid var(--border);
+  border-radius:11px;padding:11px 13px;font-size:14px;font-family:inherit;transition:border-color .15s}
+textarea{resize:vertical;min-height:84px}
+textarea:focus,input:focus,select:focus{outline:none;border-color:rgba(64,156,255,.6);box-shadow:0 0 0 3px rgba(64,156,255,.10)}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-top:12px}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;border:0;cursor:pointer;
+  font:inherit;font-weight:700;border-radius:12px;padding:13px 20px;font-size:15px;transition:.15s}
+.btn.primary{width:100%;margin-top:14px;color:#fff;
+  background:linear-gradient(120deg,#409cff,#a78bfa);
+  box-shadow:0 12px 34px -12px rgba(64,156,255,.75)}
+.btn.primary:hover:not(:disabled){filter:brightness(1.08)}
+.btn.primary:active:not(:disabled){transform:scale(.99)}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn.ghost{background:rgba(255,255,255,.05);color:var(--text);border:1px solid var(--border);padding:9px 14px;font-size:13px;font-weight:600}
+.btn.ghost:hover{background:rgba(255,255,255,.09)}
+.btn.sm{padding:7px 12px;font-size:12px;border-radius:9px}
+.row-end{display:flex;gap:8px;flex-wrap:wrap}
+.spin{width:17px;height:17px;border:2.5px solid rgba(255,255,255,.28);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.resultbox{margin-top:18px;border:1px solid var(--border);border-radius:14px;background:rgba(0,0,0,.28);
+  min-height:220px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;text-align:center}
+.resultbox img{max-width:100%;max-height:62vh;border-radius:12px;border:1px solid rgba(255,255,255,.06);
+  box-shadow:0 22px 60px -24px rgba(0,0,0,.9)}
+.resultbox video{max-width:100%;max-height:66vh;border-radius:12px;border:1px solid rgba(255,255,255,.06);background:#000}
+.ph{color:var(--muted);font-size:14px}
+.ph .big{font-size:34px;display:block;margin-bottom:8px;opacity:.5}
+.meta{font-size:11px;color:var(--muted);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all}
+.err{color:var(--red);font-size:14px;max-width:560px}
+.err .big{font-size:30px;display:block;margin-bottom:6px}
+
+/* facts editor */
+.facts{display:grid;gap:12px;margin-top:6px}
+.factcard{border:1px solid var(--border);border-radius:13px;background:rgba(0,0,0,.22);padding:13px}
+.factcard h4{margin:0 0 10px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--blue);display:flex;align-items:center;gap:8px}
+.factcard .badge{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;font-size:11px;
+  background:rgba(64,156,255,.15);border:1px solid rgba(64,156,255,.3);color:#bcd7ff}
+.frow{display:grid;grid-template-columns:64px 1fr;gap:9px;margin-bottom:9px}
+.frow.full{grid-template-columns:1fr}
+.frow.two{grid-template-columns:1fr 1fr}
+.factcard input,.factcard textarea{font-size:13px;padding:8px 10px;border-radius:9px}
+.factcard textarea{min-height:52px}
+
+.colors{display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.colorwrap{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--muted)}
+input[type=color]{width:38px;height:34px;padding:0;border:1px solid var(--border);border-radius:9px;background:none;cursor:pointer}
+
+.progress{margin-top:16px}
+.bar{height:9px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
+.bar > i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,var(--blue),var(--violet));transition:width .4s ease;box-shadow:0 0 16px rgba(64,156,255,.6)}
+.progress .msg{margin-top:8px;font-size:11px;color:var(--muted);font-family:ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+footer{text-align:center;color:var(--muted);font-size:11px;margin-top:26px;display:flex;flex-direction:column;gap:6px;align-items:center}
+footer a{color:#8fbcff;text-decoration:none}
+footer a:hover{text-decoration:underline}
+.hint{font-size:11px;color:var(--muted);margin-top:8px}
+.badge-pill{display:inline-flex;align-items:center;gap:6px;font-size:10px;padding:3px 9px;border-radius:99px;
+  border:1px solid rgba(16,209,129,.3);background:rgba(16,209,129,.08);color:#7ff0be}
+@media(max-width:620px){
+  h1{font-size:22px} .panel{padding:15px;border-radius:15px} .frow.two{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand">
+      <div class="logo">🎬</div>
+      <div style="text-align:left">
+        <h1>ZES Studio</h1>
+        <p class="sub">Image generation + short-video rendering, in one place</p>
+      </div>
+    </div>
+    <div class="tabs" role="tablist">
+      <button class="tab active" id="tab-image" role="tab" aria-selected="true"><span class="dot"></span>Image Studio</button>
+      <button class="tab" id="tab-video" role="tab" aria-selected="false"><span class="dot"></span>Video Studio</button>
+    </div>
+  </header>
+
+  <!-- ================= IMAGE ================= -->
+  <section class="view active" id="view-image">
+    <div class="panel">
+      <label class="f" for="prompt">Prompt</label>
+      <textarea id="prompt" rows="3" placeholder="a calico cat surfing on a glowing wave at sunset, photorealistic">a calico cat surfing on a glowing wave at sunset, photorealistic</textarea>
+
+      <div class="grid3">
+        <div>
+          <label class="f" for="model">Model</label>
+          <select id="model">
+            <option value="flux" selected>flux — photorealistic</option>
+            <option value="zimage">zimage — artistic</option>
+            <option value="klein">klein — fast / creative</option>
+            <option value="kontext">kontext — context-aware</option>
+          </select>
+        </div>
+        <div>
+          <label class="f" for="width">Width</label>
+          <input id="width" type="number" min="64" max="2048" step="64" value="1024" />
+        </div>
+        <div>
+          <label class="f" for="height">Height</label>
+          <input id="height" type="number" min="64" max="2048" step="64" value="1024" />
+        </div>
+      </div>
+
+      <button class="btn primary" id="genBtn">✨ Generate image</button>
+      <div class="hint">Ctrl / ⌘ + Enter to generate. Anonymous tier via image.pollinations.ai (rate-limited).</div>
+    </div>
+
+    <div class="panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <label class="f" style="margin:0">Result</label>
+        <div class="row-end" id="imgActions" style="display:none">
+          <button class="btn ghost sm" id="useBgBtn">🎬 Use as video background</button>
+          <button class="btn ghost sm" id="dlImgBtn">⬇ Download</button>
+          <a class="btn ghost sm" id="srcImgLink" target="_blank" rel="noopener">↗ Source</a>
+        </div>
+      </div>
+      <div class="resultbox" id="imgResult">
+        <div class="ph"><span class="big">🖼️</span>Your image will appear here.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= VIDEO ================= -->
+  <section class="view" id="view-video">
+    <div class="panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <div>
+          <label class="f" style="margin:0">Short-video settings</label>
+          <p class="hint" style="margin:2px 0 0">Vertical 1080×1920 · 30 fps · Remotion</p>
+        </div>
+        <span class="badge-pill">● 5 facts = ~45s</span>
+      </div>
+
+      <div class="grid3" style="margin-top:14px">
+        <div>
+          <label class="f" for="v_kicker">Kicker</label>
+          <input id="v_kicker" type="text" value="AMAZING FACTS" />
+        </div>
+        <div>
+          <label class="f" for="v_topic">Topic</label>
+          <input id="v_topic" type="text" value="THE OCEAN" />
+        </div>
+        <div>
+          <label class="f" for="v_handle">Handle</label>
+          <input id="v_handle" type="text" value="@yourchannel" />
+        </div>
+      </div>
+
+      <div class="colors">
+        <div class="colorwrap"><input type="color" id="v_accent" value="#4DD8FF" /> Accent</div>
+        <div class="colorwrap"><input type="color" id="v_accent2" value="#FFC94D" /> Accent 2</div>
+      </div>
+
+      <div style="margin-top:16px">
+        <label class="f" for="v_image">Background image URL <span style="text-transform:none;font-weight:400">(optional — generate above, then “Use as video background”)</span></label>
+        <input id="v_image" type="text" placeholder="https://… or leave empty for the animated gradient" />
+      </div>
+
+      <label class="f" style="margin-top:16px">Facts (exactly 5)</label>
+      <div class="facts" id="factsEditor"></div>
+
+      <button class="btn primary" id="renderBtn">🎬 Render video</button>
+      <div class="progress" id="renderProgress" style="display:none">
+        <div class="bar"><i id="renderBar"></i></div>
+        <div class="msg" id="renderMsg">starting…</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <label class="f">Preview</label>
+      <div class="resultbox" id="videoResult">
+        <div class="ph"><span class="big">🎞️</span>Your rendered video will appear here.</div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div>Images by <a href="https://pollinations.ai" target="_blank" rel="noopener">Pollinations.ai</a> · Video by <a href="https://remotion.dev" target="_blank" rel="noopener">Remotion</a></div>
+    <div><a href="/arena/" target="_blank" rel="noopener">Arena</a> · <a href="/tw-writer.html" target="_blank" rel="noopener">TW Writer</a> · <a href="/legacy-image.html" target="_blank" rel="noopener">Classic image UI</a></div>
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+
+  /* ---------------- tabs ---------------- */
+  const tabs = { image: $("tab-image"), video: $("tab-video") };
+  const views = { image: $("view-image"), video: $("view-video") };
+  function setTab(name){
+    for (const k of Object.keys(tabs)) {
+      const on = k === name;
+      tabs[k].classList.toggle("active", on);
+      tabs[k].setAttribute("aria-selected", on ? "true" : "false");
+      views[k].classList.toggle("active", on);
+    }
+    if (location.hash.slice(1) !== name) history.replaceState(null, "", "#" + name);
+  }
+  tabs.image.onclick = () => setTab("image");
+  tabs.video.onclick = () => setTab("video");
+  const initial = location.hash.slice(1);
+  if (initial === "video") setTab("video");
+
+  /* ---------------- image studio ---------------- */
+  let lastImage = null; // { objectUrl, proxyUrl, directUrl, prompt, model, w, h }
+
+  function buildProxyUrl(prompt, model, w, h){
+    const q = new URLSearchParams({ prompt, model, width: String(w), height: String(h) });
+    return "/api/image?" + q.toString();
+  }
+
+  function setImageBusy(on){
+    const btn = $("genBtn");
+    btn.disabled = on;
+    btn.innerHTML = on ? '<span class="spin"></span> Generating…' : '✨ Generate image';
+  }
+
+  function showImagePlaceholder(){
+    $("imgResult").innerHTML = '<div class="ph"><span class="big">🖼️</span>Your image will appear here.</div>';
+    $("imgActions").style.display = "none";
+  }
+
+  function showImageError(msg){
+    $("imgResult").innerHTML = '<div class="err"><span class="big">⚠️</span>' + escapeHtml(msg) + '</div>' +
+      '<div class="meta">Try a shorter prompt or another model. Sign in at enter.pollinations.ai for higher quota.</div>';
+    $("imgActions").style.display = "none";
+  }
+
+  async function generateImage(){
+    const prompt = $("prompt").value.trim();
+    if (!prompt) { $("prompt").focus(); return; }
+    const model = $("model").value;
+    const w = Math.max(64, Math.min(2048, parseInt($("width").value, 10) || 1024));
+    const h = Math.max(64, Math.min(2048, parseInt($("height").value, 10) || 1024));
+    const proxyUrl = buildProxyUrl(prompt, model, w, h);
+
+    setImageBusy(true);
+    $("imgActions").style.display = "none";
+    $("imgResult").innerHTML = '<div class="spin" style="width:34px;height:34px;border-width:3px"></div>' +
+      '<div class="ph">Generating… (typically 5–25 s)</div><div class="meta">' + escapeHtml(proxyUrl) + '</div>';
+
+    try {
+      const t0 = Date.now();
+      const res = await fetch(proxyUrl, { method: "GET" });
+      const ct = res.headers.get("content-type") || "";
+      if (!res.ok || !ct.startsWith("image/")) {
+        let detail = "HTTP " + res.status;
+        try { const j = await res.json(); if (j && (j.error || j.detail)) detail = (j.error||"error") + (j.detail?": "+j.detail:"") + (j.status?" (upstream "+j.status+")":""); } catch(e){}
+        throw new Error(detail);
+      }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const secs = ((Date.now() - t0) / 1000).toFixed(1);
+
+      if (lastImage && lastImage.objectUrl) URL.revokeObjectURL(lastImage.objectUrl);
+      const ext = (blob.type || '').includes('jpeg') ? 'jpg' : 'png';
+      lastImage = { objectUrl, proxyUrl: location.origin + proxyUrl, directUrl: proxyUrl, prompt, model, w, h, ext };
+
+      $("imgResult").innerHTML =
+        '<img alt="Generated image" src="' + objectUrl + '" />' +
+        '<div class="meta">' + model + ' · ' + w + '×' + h + ' · ' + secs + 's · via image.pollinations.ai</div>';
+      $("imgActions").style.display = "flex";
+      $("srcImgLink").href = proxyUrl;
+    } catch (err) {
+      showImageError(err && err.message ? err.message : String(err));
+    } finally {
+      setImageBusy(false);
+    }
+  }
+
+  $("genBtn").onclick = generateImage;
+  $("prompt").addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); generateImage(); }
+  });
+  $("dlImgBtn").onclick = () => {
+    if (!lastImage) return;
+    const a = document.createElement("a");
+    a.href = lastImage.objectUrl;
+    a.download = "zes-image-" + lastImage.model + "-" + Date.now() + "." + (lastImage.ext || "png");
+    a.click();
+  };
+  $("useBgBtn").onclick = () => {
+    if (!lastImage) return;
+    $("v_image").value = lastImage.proxyUrl;
+    setTab("video");
+    $("v_image").scrollIntoView({ behavior: "smooth", block: "center" });
+    $("v_image").style.borderColor = "rgba(16,209,129,.7)";
+    setTimeout(() => { $("v_image").style.borderColor = ""; }, 1400);
+  };
+
+  /* ---------------- facts editor ---------------- */
+  const DEFAULT_FACTS = [
+    { emoji:"🌊", headline:"The ocean covers 71% of Earth", detail:"But we have mapped only a fraction of the seafloor in high detail.", stat:"71%", statLabel:"OF THE PLANET" },
+    { emoji:"💧", headline:"97% of Earth's water is in the sea", detail:"Only about 3% is fresh water, and most of that is locked in ice.", stat:"97%", statLabel:"OF ALL WATER" },
+    { emoji:"🌋", headline:"The deepest point is 11 km down", detail:"Mount Everest would fit inside the Mariana Trench with room to spare.", stat:"11 KM", statLabel:"DEEPEST POINT" },
+    { emoji:"🫁", headline:"The ocean makes half our oxygen", detail:"Tiny drifting plankton produce oxygen with every breath you take.", stat:"50%", statLabel:"OF OUR OXYGEN" },
+    { emoji:"🔭", headline:"Most of the ocean is unexplored", detail:"More than 80% has never been seen by human eyes. The map is still blank.", stat:"80%", statLabel:"UNEXPLORED" }
+  ];
+
+  function factCard(fact, i){
+    const n = String(i + 1).padStart(2, "0");
+    return '<div class="factcard" data-i="' + i + '">' +
+      '<h4><span class="badge">' + n + '</span> Fact ' + n + '</h4>' +
+      '<div class="frow"><input type="text" data-k="emoji" value="' + escapeAttr(fact.emoji) + '" placeholder="emoji" aria-label="emoji" />' +
+        '<input type="text" data-k="headline" value="' + escapeAttr(fact.headline) + '" placeholder="Headline" aria-label="headline" /></div>' +
+      '<div class="frow full"><textarea data-k="detail" placeholder="Detail" aria-label="detail">' + escapeHtml(fact.detail) + '</textarea></div>' +
+      '<div class="frow two"><input type="text" data-k="stat" value="' + escapeAttr(fact.stat) + '" placeholder="Stat (e.g. 71%)" aria-label="stat" />' +
+        '<input type="text" data-k="statLabel" value="' + escapeAttr(fact.statLabel) + '" placeholder="Stat label" aria-label="stat label" /></div>' +
+      '</div>';
+  }
+
+  function renderFacts(){
+    $("factsEditor").innerHTML = DEFAULT_FACTS.map(factCard).join("");
+  }
+  renderFacts();
+
+  function readFacts(){
+    return Array.from($("factsEditor").querySelectorAll(".factcard")).map((card) => {
+      const get = (k) => card.querySelector('[data-k="' + k + '"]').value;
+      return {
+        emoji: get("emoji").trim() || "✨",
+        headline: get("headline").trim(),
+        detail: get("detail").trim(),
+        stat: get("stat").trim(),
+        statLabel: get("statLabel").trim()
+      };
+    });
+  }
+
+  /* ---------------- video render ---------------- */
+  let pollTimer = null;
+
+  function setRenderBusy(on){
+    const btn = $("renderBtn");
+    btn.disabled = on;
+    btn.innerHTML = on ? '<span class="spin"></span> Rendering…' : '🎬 Render video';
+    $("renderProgress").style.display = on ? "block" : "none";
+    if (!on) { $("renderBar").style.width = "0%"; }
+  }
+
+  async function startRender(){
+    const props = {
+      kicker: $("v_kicker").value.trim(),
+      topic: $("v_topic").value.trim(),
+      handle: $("v_handle").value.trim(),
+      accent: $("v_accent").value,
+      accent2: $("v_accent2").value,
+      imageSrc: $("v_image").value.trim(),
+      audioSrc: "",
+      facts: readFacts()
+    };
+    if (!props.topic) { $("v_topic").focus(); return; }
+    if (props.facts.some((f) => !f.headline)) {
+      alert("Each of the 5 facts needs a headline.");
+      return;
+    }
+
+    setRenderBusy(true);
+    $("renderBar").style.width = "3%";
+    $("renderMsg").textContent = "queuing render…";
+    $("videoResult").innerHTML = '<div class="ph"><span class="big">🎞️</span>Rendering in progress…</div>';
+
+    try {
+      const res = await fetch("/api/render", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(props)
+      });
+      const job = await res.json();
+      if (!res.ok) throw new Error(job.detail || job.error || ("HTTP " + res.status));
+      pollJob(job.id);
+    } catch (err) {
+      renderFailed(err && err.message ? err.message : String(err));
+    }
+  }
+
+  function pollJob(id){
+    clearInterval(pollTimer);
+    const tick = async () => {
+      try {
+        const res = await fetch("/api/render/" + encodeURIComponent(id));
+        const job = await res.json();
+        if (!res.ok) throw new Error(job.error || ("HTTP " + res.status));
+
+        if (typeof job.progress === "number") $("renderBar").style.width = Math.max(3, job.progress) + "%";
+        if (job.message) $("renderMsg").textContent = job.message;
+
+        if (job.status === "done" && job.file) {
+          clearInterval(pollTimer);
+          $("renderBar").style.width = "100%";
+          $("renderMsg").textContent = "render complete";
+          setRenderBusy(false);
+          $("videoResult").innerHTML =
+            '<video controls playsinline src="' + job.file + '"></video>' +
+            '<div class="row-end" style="margin-top:12px">' +
+              '<a class="btn ghost sm" href="' + job.file + '?download=1">⬇ Download MP4</a>' +
+              '<a class="btn ghost sm" href="' + job.file + '" target="_blank" rel="noopener">↗ Open</a>' +
+            '</div>';
+        } else if (job.status === "error") {
+          clearInterval(pollTimer);
+          renderFailed(job.error || "render failed");
+        }
+      } catch (err) {
+        clearInterval(pollTimer);
+        renderFailed(err && err.message ? err.message : String(err));
+      }
+    };
+    tick();
+    pollTimer = setInterval(tick, 1500);
+  }
+
+  function renderFailed(msg){
+    clearInterval(pollTimer);
+    setRenderBusy(false);
+    $("videoResult").innerHTML = '<div class="err"><span class="big">⚠️</span>' + escapeHtml(msg) + '</div>';
+  }
+
+  $("renderBtn").onclick = startRender;
+
+  /* ---------------- utils ---------------- */
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+  }
+  function escapeAttr(s){ return escapeHtml(s); }
+})();
+</script>
+</body>
+</html>

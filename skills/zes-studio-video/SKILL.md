@@ -16,6 +16,7 @@ Project at `~/zes-studio/video`. Remotion 4.0.540, 1080×1920 @ 30 fps.
 | `EarthFacts` | `EarthFacts.tsx` + `earthScript.ts` | fixed script |
 | `USFacts` | `USFacts.tsx` + `usScript.ts` | fixed script; 2239 frames ≈ 74.6 s |
 | `RussiaFacts` | `RussiaFacts.tsx` + `russiaScript.ts` | same template as USFacts, navy/gold accents; 2274 frames ≈ 75.8 s; uses `audio-ru/` narration + `kinetic/ru-*.jpg` backgrounds |
+| `AustraliaFacts` | `AustraliaFacts.tsx` + `australiaScript.ts` | same template, green/gold accents; 2359 frames ≈ 78.6 s; uses `audio-au/` narration + `kinetic/au-*.jpg` backgrounds |
 | `KineticVideo` | `KineticVideo.tsx` + `kinetic.ts` | props-driven kinetic typography (JSON payload); what `/api/render` auto-detects via `textLayers` |
 
 `video/node_modules` is a **symlink** to `~/shorts-studio/node_modules` (~840 MB).
@@ -100,6 +101,11 @@ cd video && node node_modules/@remotion/cli/remotion-cli.js render src/index.ts 
 ```
 
 ## Gotchas
+
+**New topic videos** are now 3 files: copy `australiaScript.ts` → `<topic>Script.ts`
+(new scenes/durations), a 3-line `<Topic>Facts.tsx` wrapper around `TopNFacts`, and a
+`<Composition>` row in `Root.tsx`. The template (`TopNFacts.tsx`) holds all visuals —
+never copy the whole component again.
 
 - zod version warning ("installed 3.25.76, required 4.6.7") is noise from the
   symlinked deps — renders still work.

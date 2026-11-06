@@ -13,6 +13,8 @@ import {AustraliaFacts} from "./AustraliaFacts";
 import {TOTAL_FRAMES as AU_FRAMES} from "./australiaScript";
 import {OctopusFacts} from "./OctopusFacts";
 import {TOTAL_FRAMES as OC_FRAMES} from "./octopusScript";
+import {OceanFacts} from "./OceanFacts";
+import {TOTAL_FRAMES as OC2_FRAMES} from "./oceanScript";
 import {KineticVideo} from "./KineticVideo";
 import {kineticDefaultProps, kineticSchema} from "./kinetic";
 
@@ -77,6 +79,14 @@ export const RemotionRoot: React.FC = () => {
       id="OctopusFacts"
       component={OctopusFacts}
       durationInFrames={OC_FRAMES}
+      fps={30}
+      width={1080}
+      height={1920}
+    />
+    <Composition
+      id="OceanFacts"
+      component={OceanFacts}
+      durationInFrames={OC2_FRAMES}
       fps={30}
       width={1080}
       height={1920}

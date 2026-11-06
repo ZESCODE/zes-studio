@@ -13,6 +13,7 @@
     "render:russia": "cd video && node node_modules/@remotion/cli/remotion-cli.js render src/index.ts RussiaFacts ../renders/out.mp4",
     "render:australia": "cd video && node node_modules/@remotion/cli/remotion-cli.js render src/index.ts AustraliaFacts ../renders/out.mp4",
     "render:octopus": "cd video && node node_modules/@remotion/cli/remotion-cli.js render src/index.ts OctopusFacts ../renders/out.mp4",
+    "render:ocean": "cd video && node node_modules/@remotion/cli/remotion-cli.js render src/index.ts OceanFacts ../renders/out.mp4",
     "still": "cd video && node node_modules/@remotion/cli/remotion-cli.js still src/index.ts FactsVideo ../renders/thumb.png --frame=60"
   }
 }

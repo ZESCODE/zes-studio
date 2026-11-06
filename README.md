@@ -35,7 +35,7 @@ zes-studio/
 │   ├── legacy-image.html # classic single-page image UI (proxied)
 │   ├── arena/            # image model arena
 │   └── tw-writer.html    # thread writer
-├── video/                # Remotion project (FactsVideo)
+├── video/                # Remotion project (FactsVideo, EarthFacts, USFacts, RussiaFacts, KineticVideo)
 │   ├── src/              # Root.tsx, FactsVideo.tsx, data.ts, components/
 │   ├── public/fonts/     # Anton + Inter
 │   ├── remotion.config.ts

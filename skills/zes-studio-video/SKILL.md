@@ -15,6 +15,7 @@ Project at `~/zes-studio/video`. Remotion 4.0.540, 1080×1920 @ 30 fps.
 | `FactsVideo` | `FactsVideo.tsx` + `data.ts` | props-driven (5 facts); what `/api/render` renders |
 | `EarthFacts` | `EarthFacts.tsx` + `earthScript.ts` | fixed script |
 | `USFacts` | `USFacts.tsx` + `usScript.ts` | fixed script; 2239 frames ≈ 74.6 s |
+| `RussiaFacts` | `RussiaFacts.tsx` + `russiaScript.ts` | same template as USFacts, navy/gold accents; 2274 frames ≈ 75.8 s; uses `audio-ru/` narration + `kinetic/ru-*.jpg` backgrounds |
 | `KineticVideo` | `KineticVideo.tsx` + `kinetic.ts` | props-driven kinetic typography (JSON payload); what `/api/render` auto-detects via `textLayers` |
 
 `video/node_modules` is a **symlink** to `~/shorts-studio/node_modules` (~840 MB).

@@ -7,6 +7,8 @@ import {EarthFacts} from "./EarthFacts";
 import {TOTAL_FRAMES as EARTH_FRAMES} from "./earthScript";
 import {USFacts} from "./USFacts";
 import {TOTAL_FRAMES as US_FRAMES} from "./usScript";
+import {RussiaFacts} from "./RussiaFacts";
+import {TOTAL_FRAMES as RU_FRAMES} from "./russiaScript";
 import {KineticVideo} from "./KineticVideo";
 import {kineticDefaultProps, kineticSchema} from "./kinetic";
 
@@ -47,6 +49,14 @@ export const RemotionRoot: React.FC = () => {
       id="USFacts"
       component={USFacts}
       durationInFrames={US_FRAMES}
+      fps={30}
+      width={1080}
+      height={1920}
+    />
+    <Composition
+      id="RussiaFacts"
+      component={RussiaFacts}
+      durationInFrames={RU_FRAMES}
       fps={30}
       width={1080}
       height={1920}

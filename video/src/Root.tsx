@@ -7,6 +7,8 @@ import {EarthFacts} from "./EarthFacts";
 import {TOTAL_FRAMES as EARTH_FRAMES} from "./earthScript";
 import {USFacts} from "./USFacts";
 import {TOTAL_FRAMES as US_FRAMES} from "./usScript";
+import {KineticVideo} from "./KineticVideo";
+import {kineticDefaultProps, kineticSchema} from "./kinetic";
 
 loadFont({
   family: "Anton",
@@ -48,6 +50,20 @@ export const RemotionRoot: React.FC = () => {
       fps={30}
       width={1080}
       height={1920}
+    />
+    <Composition
+      id="KineticVideo"
+      component={KineticVideo}
+      schema={kineticSchema}
+      defaultProps={kineticDefaultProps}
+      durationInFrames={kineticDefaultProps.durationInFrames}
+      fps={30}
+      width={1080}
+      height={1920}
+      calculateMetadata={({props}) => ({
+        durationInFrames: props.durationInFrames,
+        fps: props.fps,
+      })}
     />
     </>
   );

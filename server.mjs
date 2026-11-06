@@ -2,13 +2,21 @@
 // zes-studio server — Image + Video Studio (zero external deps)
 //   GET  /api/status              health
 //   GET  /api/image               proxy -> image.pollinations.ai (avoids browser Origin 403)
-//   POST /api/render              start a Remotion render job {props...}
+//   POST /api/render              start a Remotion render job (FactsVideo props or a
+//                                 kinetic-typography payload — see below)
 //   GET  /api/render/:id          poll job status / progress
 //   GET  /api/renders             list finished renders
 //   GET  /renders/:file           serve rendered mp4
 // Finished renders are auto-copied to Android's Movies dir (gallery-visible).
 // Set NO_MOVIE_EXPORT=1 to disable, or MOVIES_DIR to override the target.
 //   *                             static files from ./public (SPA fallback)
+//
+// Kinetic payloads (KineticVideo composition) look like:
+//   {videoTitle, fps?, durationInFrames, scenes: [{id, startFrame, durationInFrames,
+//    backgroundImage, camera?, textLayers[{text, position?, style?, animation}],
+//    transitionOut?}]}
+// Remote http(s) backgroundImage URLs are downloaded into video/public/kinetic/
+// before rendering; other values are treated as staticFile() paths.
 
 import http from "node:http";
 import fs from "node:fs";
@@ -223,6 +231,126 @@ function sanitizeProps(input) {
   };
 }
 
+/** True when a body looks like a KineticVideo (kinetic typography) payload. */
+function isKineticPayload(body) {
+  return Array.isArray(body?.scenes) && body.scenes.some((s) => Array.isArray(s?.textLayers));
+}
+
+const str = (v, max, fb = "") => (v === undefined || v === null ? fb : String(v).slice(0, max));
+const num = (v, min, max, fb) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fb;
+};
+
+/** Bound a kinetic payload; the authoritative validation is the Remotion zod schema. */
+function sanitizeKinetic(input) {
+  if (!Array.isArray(input.scenes) || input.scenes.length < 1) throw new Error("scenes[] required");
+  if (input.scenes.length > 20) throw new Error("too many scenes (max 20)");
+  const scenes = input.scenes.map((s, i) => {
+    if (!Array.isArray(s?.textLayers)) throw new Error(`scenes[${i}].textLayers[] required`);
+    if (s.textLayers.length > 20) throw new Error(`scenes[${i}] too many textLayers (max 20)`);
+    const bg = str(s.backgroundImage, 2000).trim();
+    if (!/^(https?:\/\/|[\w./-]+\.(jpg|jpeg|png|webp)$)/i.test(bg)) {
+      throw new Error(`scenes[${i}].backgroundImage must be a URL or static .jpg/.png path`);
+    }
+    return {
+      id: str(s.id, 40) || `scene-${i}`,
+      startFrame: num(s.startFrame, 0, 100000, 0),
+      durationInFrames: num(s.durationInFrames, 1, 100000, 90),
+      backgroundImage: bg,
+      camera: {
+        type: ["static", "kenBurns", "parallax", "punchIn"].includes(s.camera?.type)
+          ? s.camera.type : "kenBurns",
+        startScale: num(s.camera?.startScale, 0.2, 4, 1),
+        endScale: num(s.camera?.endScale, 0.2, 4, 1.15),
+        panDistance: num(s.camera?.panDistance, 0, 2000, 0),
+        shake: Boolean(s.camera?.shake),
+        motionBlur: num(s.camera?.motionBlur, 0, 720, 180),
+      },
+      textLayers: s.textLayers.map((l) => ({
+        text: str(l?.text, 400),
+        position: l?.position
+          ? {
+              top: str(l.position.top, 40, undefined) || undefined,
+              left: str(l.position.left, 40, undefined) || undefined,
+              transform: str(l.position.transform, 80, undefined) || undefined,
+            }
+          : undefined,
+        style: {
+          fontFamily: str(l?.style?.fontFamily, 60, "Anton"),
+          fontSize: num(l?.style?.fontSize, 8, 400, 90),
+          color: str(l?.style?.color, 40, "#FFFFFF"),
+          textShadow: str(l?.style?.textShadow, 120, "0 8px 40px rgba(0,0,0,0.65)"),
+          textureEffect: ["none", "goldLeaf", "distressed", "inkSplatter"].includes(l?.style?.textureEffect)
+            ? l.style.textureEffect : "none",
+        },
+        animation: {
+          type: ["springScale", "wordByWord", "typewriter", "maskReveal", "bounceIn", "springPop", "staggeredSlide"]
+            .includes(l?.animation?.type) ? l.animation.type : "springScale",
+          startFrame: num(l?.animation?.startFrame, 0, 100000, 0),
+          durationInFrames: num(l?.animation?.durationInFrames, 1, 100000, 30),
+          springConfig: l?.animation?.springConfig
+            ? {
+                damping: num(l.animation.springConfig.damping, 1, 100, 12),
+                stiffness: num(l.animation.springConfig.stiffness, 1, 1000, 120),
+                mass: num(l.animation.springConfig.mass, 0.1, 10, 1),
+              }
+            : undefined,
+          easing: str(l?.animation?.easing, 60, undefined) || undefined,
+        },
+      })),
+      transitionOut: s?.transitionOut
+        ? {
+            type: ["none", "fade", "inkWipe", "canvasTear"].includes(s.transitionOut.type)
+              ? s.transitionOut.type : "none",
+            durationInFrames: num(s.transitionOut.durationInFrames, 0, 120, 10),
+          }
+        : undefined,
+    };
+  });
+  return {
+    videoTitle: str(input.videoTitle, 200, "UNTITLED"),
+    fps: num(input.fps, 15, 60, 30),
+    durationInFrames: num(input.durationInFrames, 1, 100000, scenes.reduce((m, s) => Math.max(m, s.startFrame + s.durationInFrames), 0)),
+    scenes,
+  };
+}
+
+/**
+ * Download remote scene backgrounds into video/public/kinetic/ and rewrite the
+ * scene entries to staticFile paths (Remotion only bundles local assets).
+ */
+async function downloadBackgroundImages(scenes) {
+  const dir = path.join(VIDEO_DIR, "public", "kinetic");
+  fs.mkdirSync(dir, {recursive: true});
+  for (let i = 0; i < scenes.length; i++) {
+    const url = scenes[i].backgroundImage;
+    if (!/^https?:\/\//i.test(url)) continue;
+    const ext = (m) => ({
+      "image/jpeg": ".jpg",
+      "image/jpg": ".jpg",
+      "image/png": ".png",
+      "image/webp": ".webp",
+    }[m] || ".jpg");
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 120000);
+      const r = await fetch(url, {signal: ctrl.signal, headers: {Accept: "image/*"}});
+      clearTimeout(t);
+      if (!r.ok) throw new Error(`upstream HTTP ${r.status}`);
+      const buf = Buffer.from(await r.arrayBuffer());
+      if (buf.length > 12_000_000) throw new Error("image too large (12MB)");
+      const name = `bg-${scenes[i].id.replace(/[^\w-]/g, "") || i}-${i}${ext(r.headers.get("content-type") || "")}`;
+      fs.writeFileSync(path.join(dir, name), buf);
+      scenes[i].backgroundImage = `kinetic/${name}`;
+      console.log(`[kinetic] scene ${i} background -> ${name} (${buf.length} bytes)`);
+    } catch (e) {
+      throw new Error(`background download failed for scene ${i} (${url.slice(0, 80)}): ${String(e.message || e).slice(0, 120)}`);
+    }
+  }
+  return scenes;
+}
+
 function startRender(props, opts = {}) {
   const id = randomUUID().slice(0, 8);
   const outFile = `${id}.mp4`;
@@ -242,10 +370,11 @@ function startRender(props, opts = {}) {
   // chromium all glibc). Set RENDER_INSIDE_PROOT=0 to run natively instead.
   const relOut = path.relative(VIDEO_DIR, outPath);
   const relProps = path.relative(VIDEO_DIR, propsFile);
+  const composition = opts.composition || "FactsVideo";
   const concurrency = Number(opts.concurrency || process.env.RENDER_CONCURRENCY || 4);
   const frames = typeof opts.frames === "string" && /^\d+(-\d+)?$/.test(opts.frames) ? opts.frames : null;
   const renderArgs = [
-    `CI=1 node node_modules/@remotion/cli/remotion-cli.js render src/index.ts FactsVideo ${JSON.stringify(relOut)}`,
+    `CI=1 node node_modules/@remotion/cli/remotion-cli.js render src/index.ts ${composition} ${JSON.stringify(relOut)}`,
     `--props=${JSON.stringify(relProps)}`,
     `--concurrency=${concurrency}`,
     frames ? `--frames=${frames}` : "",
@@ -361,6 +490,19 @@ const server = http.createServer(async (req, res) => {
 
     if (p === "/api/render" && req.method === "POST") {
       const body = await readBody(req);
+      if (isKineticPayload(body)) {
+        let props;
+        try { props = sanitizeKinetic(body); }
+        catch (e) { return sendJson(res, 400, { error: "bad_request", detail: String(e.message || e) }); }
+        try { await downloadBackgroundImages(props.scenes); }
+        catch (e) { return sendJson(res, 400, { error: "background_failed", detail: String(e.message || e) }); }
+        const job = startRender(props, {
+          composition: "KineticVideo",
+          frames: body.frames,
+          concurrency: body.concurrency,
+        });
+        return sendJson(res, 202, publicJob(job));
+      }
       let props;
       try { props = sanitizeProps(body); }
       catch (e) { return sendJson(res, 400, { error: "bad_request", detail: String(e.message || e) }); }

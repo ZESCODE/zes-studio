@@ -161,6 +161,67 @@ curl -s -X POST localhost:8090/api/render -H 'Content-Type: application/json' -d
 
 ---
 
+## Kinetic typography videos (KineticVideo)
+
+Composition `KineticVideo` renders **code-driven kinetic text**: per-scene 2.5D camera motion and
+sprung/word-by-word/typewriter text animations, driven entirely by a JSON payload — no recompiles,
+no static overlays. The payload mirrors `video/src/kinetic.ts` (the `KineticTypographySchema`):
+
+```json
+{
+  "videoTitle": "Did Vikings Really Wear Horned Helmets?",
+  "fps": 30,
+  "durationInFrames": 240,
+  "scenes": [
+    {
+      "id": "hook",
+      "startFrame": 0,
+      "durationInFrames": 90,
+      "backgroundImage": "https://example.com/viking-helmet.jpg",
+      "camera": {"type": "punchIn", "startScale": 1.0, "endScale": 1.3, "shake": true, "motionBlur": 270},
+      "textLayers": [
+        {
+          "text": "BIGGEST HISTORY LIE?",
+          "position": {"top": "50%", "left": "5%"},
+          "style": {"fontFamily": "Anton", "fontSize": 110, "color": "#FFD700",
+                    "textShadow": "4px 4px 8px rgba(0,0,0,0.8)", "textureEffect": "goldLeaf"},
+          "animation": {"type": "staggeredSlide", "startFrame": 0, "durationInFrames": 45,
+                        "springConfig": {"damping": 12, "stiffness": 120, "mass": 0.8}}
+        }
+      ],
+      "transitionOut": {"type": "inkWipe", "durationInFrames": 15}
+    }
+  ]
+}
+```
+
+`POST /api/render` detects a kinetic payload automatically (any body whose scenes contain
+`textLayers`) and renders `KineticVideo` instead of `FactsVideo`. A standalone demo
+(`kineticDefaultProps`) ships in `video/src/kinetic.ts` so the composition renders without props:
+
+```bash
+cd video && node node_modules/@remotion/cli/remotion-cli.js render src/index.ts KineticVideo ../renders/demo.mp4
+```
+
+| Field | Values |
+|---|---|
+| `camera.type` | `static`, `kenBurns`, `parallax`, `punchIn` (+ `shake`, `panDistance`, `motionBlur`) |
+| `animation.type` | `springScale`, `wordByWord`, `typewriter`, `maskReveal`, `bounceIn`, `springPop`, `staggeredSlide` |
+| `style.textureEffect` | `none`, `goldLeaf` (gradient clip), `distressed` (SVG displacement), `inkSplatter` |
+| `transitionOut.type` | `none`, `fade`, `inkWipe`, `canvasTear` |
+
+Notes:
+
+- **Background images:** remote `http(s)` URLs are downloaded by the server into
+  `video/public/kinetic/` and rewritten to static paths (Remotion only bundles local assets);
+  local paths (`scenes/x.jpg`, `kinetic/x.png`) pass through directly.
+- **Fonts:** only `Anton` and `Inter` are registered (`video/public/fonts`) — other
+  `fontFamily` values fall back to the browser default.
+- **`motionBlur`** (shutter angle): frames render independently, so this drives a small speed-blur
+  approximation on moving cameras, not true shutter accumulation.
+
+---
+
 ## Image CLI
 
 ```bash

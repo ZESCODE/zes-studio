@@ -15,6 +15,7 @@ Project at `~/zes-studio/video`. Remotion 4.0.540, 1080×1920 @ 30 fps.
 | `FactsVideo` | `FactsVideo.tsx` + `data.ts` | props-driven (5 facts); what `/api/render` renders |
 | `EarthFacts` | `EarthFacts.tsx` + `earthScript.ts` | fixed script |
 | `USFacts` | `USFacts.tsx` + `usScript.ts` | fixed script; 2239 frames ≈ 74.6 s |
+| `KineticVideo` | `KineticVideo.tsx` + `kinetic.ts` | props-driven kinetic typography (JSON payload); what `/api/render` auto-detects via `textLayers` |
 
 `video/node_modules` is a **symlink** to `~/shorts-studio/node_modules` (~840 MB).
 Never run `npm install` in `video/` — it would replace the symlink and duplicate
@@ -67,6 +68,30 @@ curl -X POST "$GATEWAY_URL/v1/audio/speech" -H "Content-Type: application/json" 
 `USFacts.tsx` plays `staticFile("audio-us/music.mp3")` at volume 0.2 for the
 whole video. Swap tracks by overwriting that file (a longer track than
 the video is fine — it just cuts off at the end).
+
+## Kinetic typography payloads
+
+`POST /api/render` with a body whose scenes contain `textLayers` renders `KineticVideo`
+(schema: `video/src/kinetic.ts`, mirrors the JSON KineticTypographySchema):
+
+- `camera`: `static|kenBurns|parallax|punchIn`, plus `shake`, `panDistance`, `motionBlur`
+  (approximated as a speed blur — frames render independently, so true shutter
+  accumulation is impossible)
+- `animation`: `springScale|wordByWord|typewriter|maskReveal|bounceIn|springPop|staggeredSlide`
+  with `springConfig` (damping/stiffness/mass) and optional `bezier()` easing
+- `style.textureEffect`: `none|goldLeaf|distressed|inkSplatter` (gradient clip / SVG
+  feDisplacementMap filters)
+- `transitionOut`: `none|fade|inkWipe|canvasTear`
+- **Remote `http(s)` `backgroundImage` URLs are downloaded server-side into
+  `video/public/kinetic/` and rewritten to static paths** — Remotion only bundles local
+  assets. Local `*.jpg/*.png` paths pass through as-is.
+- Only fonts `Anton` and `Inter` are registered; other `fontFamily` values fall back.
+
+Render standalone (demo props ship in `kineticDefaultProps`):
+
+```bash
+cd video && node node_modules/@remotion/cli/remotion-cli.js render src/index.ts KineticVideo ../renders/out.mp4
+```
 
 ## Gotchas
 

@@ -40,7 +40,8 @@ zes-studio/
 │   ├── public/fonts/     # Anton + Inter
 │   ├── remotion.config.ts
 │   └── node_modules -> ~/shorts-studio/node_modules   (symlink, not duplicated)
-├── renders/              # generated .mp4 files (served at /renders/)
+├── renders/              # generated .mp4 files (served at /renders/, copied to Movies)
+├── skills/               # agent skills (SKILL.md per topic)
 └── logs/studio.log
 ```
 
@@ -99,6 +100,18 @@ Browsers send an `Origin` header on `fetch()`; `image.pollinations.ai` rejects u
 **403**. The server fetches the same URL without an `Origin` header and streams the bytes back, so
 the browser only ever talks to the same origin (`/api/image`). Anonymous tier still rate-limits —
 try another model or a shorter prompt.
+
+---
+
+## Skills
+
+`skills/` holds the agent-facing knowledge for working on this project:
+
+| Skill | Covers |
+|---|---|
+| `zes-studio` | server layout, endpoints, env config (`PORT`, `NO_MOVIE_EXPORT`, `MOVIES_DIR`, …) |
+| `zes-studio-video` | Remotion compositions, the mandatory proot-Debian render path, narration regeneration via 9Router TTS, music swaps, duration re-padding |
+| `zes-studio-image` | `/api/image` proxy usage, model list and quirks, `generate_image.py`, the “use as video background” handoff |
 
 ---
 

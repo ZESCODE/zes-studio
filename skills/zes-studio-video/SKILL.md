@@ -22,6 +22,7 @@ Project at `~/zes-studio/video`. Remotion 4.0.540, 1080×1920 @ 30 fps.
 | `AmazonFacts` | `AmazonFacts.tsx` + `amazonScript.ts` | same template, forest-green/gold accents; 2389 frames ≈ 80 s; `audio-am/` narration + `kinetic/am-*.jpg` backgrounds |
 | `JapanFacts` | `JapanFacts.tsx` + `japanScript.ts` | same template, imperial red/gold accents; 2303 frames ≈ 77 s; `audio-jp/` narration + `kinetic/jp-*.jpg` backgrounds |
 | `BrazilFacts` | `BrazilFacts.tsx` + `brazilScript.ts` | same template, green/yellow accents; 2383 frames ≈ 79 s; `audio-br/` narration + `kinetic/br-*.jpg` backgrounds |
+| `EgyptFacts` | `EgyptFacts.tsx` + `egyptScript.ts` | same template, sandstone gold/lapis accents; 2869 frames ≈ 96 s; `audio-eg/` narration + `kinetic/eg-*.jpg` backgrounds |
 | `KineticVideo` | `KineticVideo.tsx` + `kinetic.ts` | props-driven kinetic typography (JSON payload); what `/api/render` auto-detects via `textLayers` |
 
 `video/node_modules` is a **symlink** to `~/shorts-studio/node_modules` (~840 MB).

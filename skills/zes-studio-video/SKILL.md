@@ -106,6 +106,24 @@ Render standalone (demo props ship in `kineticDefaultProps`):
 cd video && node node_modules/@remotion/cli/remotion-cli.js render src/index.ts KineticVideo ../renders/out.mp4
 ```
 
+## Uploading to YouTube
+
+`video/upload.py` (official YouTube Data API v3, resumable) + `video/authorize.py`
+(one-time OAuth → refresh token in master.env):
+
+```bash
+python3 authorize.py                                      # once: YT_CLIENT_ID/SECRET first
+python3 upload.py ../renders/<X>-Top5-Facts.mp4 --meta meta/<x>.json [--dry-run]
+python3 upload.py ... --meta ... --privacy public          # or --schedule 2026-11-10T18:00
+```
+
+Meta JSON (`title` ≤100, `description` ≤5000 with chapter timestamps, ≤15 tags ≤500 chars total,
+`categoryId` 27) — `upload.py` validates video (9:16, ≤180s) + meta before any network call.
+Per-video metadata files live in `video/meta/<topic>.json`. Quota: 1,600 units/upload ≈ 6/day.
+Recipe after a render: write `meta/<topic>.json` (title = "Top 5 <Topic> Facts That Sound Fake",
+description = one-line hook + timestamped chapters from the script scene starts + the doc's
+hashtag set), dry-run, then upload private → schedule.
+
 ## Gotchas
 
 **New topic videos** are now 3 files: copy `australiaScript.ts` → `<topic>Script.ts`

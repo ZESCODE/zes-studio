@@ -228,6 +228,41 @@ Notes:
 
 ---
 
+## Uploading to YouTube (Data API v3)
+
+Uploads run through YouTube's official API — no third-party relay. Credentials live in
+`~/.secure-credentials/master.env` (never in this repo).
+
+**One-time setup (you, in Google Cloud Console):**
+
+1. New project → Library → enable **YouTube Data API v3**
+2. OAuth consent screen (External) → add scope `.../auth/youtube.upload` →
+   set Publishing status **In production** (Testing mode expires refresh tokens after 7 days)
+3. Credentials → OAuth client ID → type **Desktop app** → put `YT_CLIENT_ID` /
+   `YT_CLIENT_SECRET` into master.env
+4. On this device:
+
+```bash
+cd ~/zes-studio/video
+python3 authorize.py        # prints a URL — approve in the phone browser
+```
+
+**Uploading:**
+
+```bash
+python3 upload.py ../renders/Brazil-Top5-Facts.mp4 --meta meta/brazil.json --dry-run
+python3 upload.py ../renders/Brazil-Top5-Facts.mp4 --meta meta/brazil.json --privacy public
+python3 upload.py clip.mp4 --meta meta/brazil.json --schedule 2026-11-10T18:00  # queue a drop
+```
+
+- Meta JSON: `title / description / tags / categoryId (27=Education) / privacy / publishAt`;
+  `--dry-run` validates everything (length limits, 9:16, ≤180s) without touching the API
+- Resumable upload (8MB chunks) with progress; prints `youtu.be/<id>` on success
+- Quota: 10,000 units/day, 1 upload = 1,600 → ~6/day; videos are 1080×1920 ≤180s so they
+  auto-qualify as Shorts (`#Shorts` in description + tags)
+
+---
+
 ## Image CLI
 
 ```bash

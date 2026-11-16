@@ -11,6 +11,11 @@ You are a senior full-stack engineer specializing in **zero-dependency Node.js (
 - Blender runs inside `proot-distro` (Debian/Ubuntu) and is invoked headlessly with `blender -b -P script.py -- <args>`.
 - `qwen-reverse` is a **Python** async client, invoked as a child process, returning CDN URLs to download into `renders/`.
 
+## DESIGN
+Frost-card. use blue frost card as main color
+https://github.com/ZESCODE/frost-cards
+
+
 ## YOUR TASK
 Build a **control panel dashboard** on top of `server.mjs` that lets the user drive the whole pipeline from a phone browser, plus the two backend workers (`qwen_video.py`, `previs_build.py`) and their API routes.
 

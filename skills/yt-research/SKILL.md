@@ -65,4 +65,5 @@ For the "top 5 facts about X" format used by this channel:
 ## Handoff
 Each idea's payload goes straight to the kinetic pipeline — see the `zes-studio-video`
 skill for the KineticVideo schema (`backgroundImage`, `camera`, `textLayers`,
-`transitionOut`), and `zes-studio-image` for generating backgrounds.
+`transitionOut`), `zes-studio-image` for generating backgrounds, and
+`zes-studio-agent` for queueing/polling the v2 studio API.

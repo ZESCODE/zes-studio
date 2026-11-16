@@ -12,7 +12,7 @@ Project at `~/zes-studio/video`. Remotion 4.0.540, 1080×1920 @ 30 fps.
 
 | id | Source | Notes |
 |---|---|---|
-| `FactsVideo` | `FactsVideo.tsx` + `data.ts` | props-driven (5 facts); what `/api/render` renders |
+| `FactsVideo` | `FactsVideo.tsx` + `data.ts` | props-driven (5 facts); default `/api/render` composition |
 | `EarthFacts` | `EarthFacts.tsx` + `earthScript.ts` | fixed script |
 | `USFacts` | `USFacts.tsx` + `usScript.ts` | fixed script; 2239 frames ≈ 74.6 s |
 | `RussiaFacts` | `RussiaFacts.tsx` + `russiaScript.ts` | same template as USFacts, navy/gold accents; 2274 frames ≈ 75.8 s; uses `audio-ru/` narration + `kinetic/ru-*.jpg` backgrounds |
@@ -135,5 +135,8 @@ never copy the whole component again.
   symlinked deps — renders still work.
 - `remotion.config.ts` targets the Termux `headless_shell` only when
   `platform === "android"`; under Debian it resolves the bundled shell.
-- API jobs (`/api/render`) always target `FactsVideo` and need exactly 5 facts
-  in the body.
+- API jobs (`/api/render`) target `FactsVideo` by default and need exactly 5
+  facts in the body. A payload with `scenes[].textLayers` auto-renders
+  `KineticVideo`; `{ "asset": "<name>" }` supplies five default facts and can
+  bind an image or `ffmpeg` poster frame to `imageSrc`. For the v2 job queue,
+  logs, cancellation, and asset workflow, use `zes-studio-agent`.

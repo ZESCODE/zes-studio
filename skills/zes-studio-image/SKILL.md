@@ -1,7 +1,7 @@
 ---
 name: zes-studio-image
 category: Media
-description: Pollinations image generation in zes-studio — same-origin /api/image proxy, model list and quirks, generate_image.py CLI, and the "use as video background" handoff into the Remotion video tab. Use when generating or debugging images in ~/zes-studio.
+description: Pollinations image generation in ZES Studio 2.0 — same-origin /api/image proxy, model list and quirks, generate_image.py CLI, the Generate-view preview, legacy /legacy-image.html handoff, and asset-backed Remotion renders. Use when generating or debugging images in ~/zes-studio.
 ---
 
 # zes-studio — Image generation
@@ -40,17 +40,26 @@ python3 generate_image.py            # writes output_<model>.png
 Environment notes: `python3`, `node v24`, `npx` available; `file` and `conda`
 are **not** available in this Termux.
 
-## UI handoff to video
+## UI handoff in v2
 
-1. Image tab → generate → **download** or
-2. **🎬 Use as video background** — fills the Video tab's `Background image URL`
-   field with the generated image, which is passed to the render as `imageSrc`
-   (schema + `Background.tsx` view support it).
+- **Generate** view → "Pollinations backdrop" preview calls `/api/image?...`
+  through the preserved same-origin proxy; it adds no frontend dependency.
+- **Render** view → pick an image asset from `renders/` and submit
+  `{ "asset": "<name>", "topic": "..." }`; the server binds it to `imageSrc`.
+  MP4/WebM assets optionally get an `ffmpeg` poster frame; without `ffmpeg`,
+  Remotion uses its animated backdrop.
+- The classic one-click **🎬 Use as video background** flow remains in
+  `/legacy-image.html` (it fills the legacy Video tab's background URL).
+- Never call `image.pollinations.ai` directly from browser code; use `/api/image`.
+
+For the full agent workflow, see `zes-studio-agent`.
 
 ## Files
 
 | Path | Purpose |
 |---|---|
-| `public/index.html` | combined UI (Image + Video tabs) |
-| `public/legacy-image.html` | old standalone demo, already patched to `/api/image` |
+| `public/index.html` | v2 control panel; Generate view has the optional preview |
+| `public/app.js` | preview request + asset-based render wiring |
+| `public/legacy-image.html` | classic Pollinations studio with one-click handoff |
 | `generate_image.py` | CLI wrapper around the same endpoint |
+| `renders/` | image assets can be selected for final renders |

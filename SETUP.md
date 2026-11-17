@@ -25,50 +25,103 @@ python -c "from qwen_reverse import Video, DEFAULT_MODEL; print('qwen-reverse OK
 
 ### Qwen authentication (no secrets in Git)
 
-`qwen_video.py` reads credentials in this order:
+`qwen_video.py` talks to chat.qwen.ai's web API the same way the
+[qwen3-reverse](https://github.com/wwwzhouhui/qwen3-reverse) project does: it
+sends your browser `Cookie` header, and derives the bearer token from the
+`token` cookie when `QWEN_TOKEN` is not set separately. This avoids the OAuth
+device flow, which Aliyun's WAF rejects with `405`.
 
-1. `QWEN_TOKEN`, `QWEN_PROXY`, `QWEN_MODEL`, `QWEN_COOKIES` from `process.env`;
+Get both values from [chat.qwen.ai](https://chat.qwen.ai) while logged in:
+
+1. Open DevTools → Network, send a message, open the `chat/completions` request.
+2. Copy the full `Cookie` request header into `QWEN_COOKIES`.
+3. The token is the `token=` value inside that cookie (or read `token` from
+   DevTools → Application → Local Storage → chat.qwen.ai).
+
+Credentials are read in this order:
+
+1. `QWEN_TOKEN`, `QWEN_COOKIES`, `QWEN_PROXY`, `QWEN_MODEL` from `process.env`;
 2. the same keys (or lowercase aliases) from a **gitignored** `config.json` at the repo root;
 3. qwen-reverse's cached OAuth credentials via `SharedTokenManager` (`~/.qwen/oauth_creds.json`).
 
-Video `t2v` generation is disabled for anonymous chat.qwen.ai access, so provide either a token or cached OAuth credentials. Example `config.json` (never commit it):
+Video `t2v` generation is disabled for anonymous chat.qwen.ai access, so a
+token/cookie pair is required. Example `config.json` (never commit it):
 
 ```json
 {
-  "QWEN_TOKEN": "paste-your-token-here",
+  "QWEN_COOKIES": "cnaui=...; aui=...; token=...; ssxmod_itna=...",
+  "QWEN_TOKEN": "",
   "QWEN_PROXY": "",
-  "QWEN_MODEL": "qwen3.8-max",
-  "QWEN_COOKIES": ""
+  "QWEN_MODEL": "qwen3.8-max"
 }
 ```
 
-Or export the token for one shell session:
+Or export them for one shell session:
 
 ```sh
-export QWEN_TOKEN="paste-your-token-here"
+export QWEN_COOKIES="paste-the-full-cookie-header-here"
+export QWEN_TOKEN=""          # optional; extracted from the token= cookie
 export QWEN_PROXY=""          # optional
-export QWEN_MODEL=""          # optional; defaults to qwen_reverse.DEFAULT_MODEL
+export QWEN_MODEL=""          # optional; defaults to qwen3.8-max
 ```
 
-To create qwen-reverse's OAuth cache with the library's device-login helpers, run:
+`qwen_video.py` also honors `QWEN_ALLOW_ANONYMOUS=1` (try a guest request
+anyway). On headless Termux, a fresh cookie/token pair is the reliable path.
+
+### Saving credentials with `qwen_auth.py`
+
+Instead of editing `config.json` by hand, use the helper. It parses the
+cookie, derives the token, validates both against chat.qwen.ai, and writes a
+mode-600 `config.json` (secrets are only ever printed in masked form):
 
 ```sh
-python - <<'PY'
-import asyncio
-from qwen_reverse import start_device_login, complete_device_login
+# 1) In Chrome: DevTools > Network > any chat/completions request >
+#    copy the whole "Cookie" request header.
+# 2) Copy it to the Android clipboard, then:
+termux-clipboard-get | npm run -s qwen-auth -- --clipboard --show
 
-async def main():
-    client, data = await start_device_login()
-    print("Open the verification URL printed below and enter the user code.")
-    print(data)
-    token = await complete_device_login(client, data)
-    print("Saved OAuth credentials to ~/.qwen/oauth_creds.json; token length:", len(token))
+# or pass it directly
+npm run -s qwen-auth -- --cookie "cnaui=...; aui=...; token=..."
 
-asyncio.run(main())
-PY
+# token-only accounts (no cookie header)
+npm run -s qwen-auth -- --token "eyJ..."
+
+# re-validate what is already saved (exits 1 if expired)
+npm run -s qwen-auth:check
 ```
 
-`qwen_video.py` also honors `QWEN_BROWSER=1` (qwen-reverse browser transport) and `QWEN_ALLOW_ANONYMOUS=1` (try a guest request anyway). On headless Termux, a token or cached OAuth credential is the reliable path.
+Skip the live check while offline with `--no-validate`. The old contents of
+`config.json` are merged, so `QWEN_MODEL`/`QWEN_PROXY` are preserved.
+
+You can also connect from the browser: open **Settings → Qwen account** and
+press **Connect account**. It opens chat.qwen.ai in a new tab and reveals three
+paths:
+
+1. **Bookmarklet (one-click):** drag **Connect Qwen** to your bookmarks bar,
+   then click it while on chat.qwen.ai. It reads the Qwen `token` plus page
+   cookies and returns to `http://127.0.0.1:3030/connect`, which validates and
+   saves them automatically. If the page has no readable access token, the
+   bookmarklet calls Qwen's own refresh endpoint from the signed-in tab. Use
+   **Copy bookmarklet** where dragging is not available (create a bookmark
+   whose URL is the copied `javascript:` snippet).
+2. **Paste from clipboard** into the cookie/token fields, then **Validate & save**.
+   A cookie containing only `refresh_token` also works: the server exchanges it
+   at `https://auth.qwen.ai/api/v2/auths/refresh` and stores the returned
+   `access_token` as `QWEN_TOKEN`.
+3. Paste manually from DevTools as described above.
+
+The card shows a status indicator plus **Check connection** and **Disconnect**
+buttons; the server validates against chat.qwen.ai before writing
+`config.json` (mode 600) and never returns the secret values. Expiring access
+tokens are refreshed automatically from the saved `refresh_token` when you press
+**Check connection** or start a video job.
+
+> Android note: Quetta supports extensions. Install **Tampermonkey** from the
+> Chrome Web Store, open `/qwen-connect.user.js` from the Settings card
+> (**Install userscript**), then reload chat.qwen.ai and tap **Connect ZES
+> Studio**. For a bookmarklet, create a bookmark for chat.qwen.ai, edit its URL
+> and replace it with the copied `javascript:` snippet. Chrome cannot install
+> bookmarklets; Firefox can. Pasted cookies work in any browser.
 
 ## 3. Install Blender inside `proot-distro` Debian
 
@@ -88,7 +141,17 @@ export BLENDER_BIN="proot-distro login debian -- blender"
 echo 'export BLENDER_BIN="proot-distro login debian -- blender"' >> ~/.bashrc
 ```
 
-The server tokenizes `BLENDER_BIN`, so both of these work:
+The server also reads `BLENDER_BIN` (or `blender_bin`) from the gitignored
+`config.json`, so you can persist it without touching your shell startup:
+
+```json
+{
+  "BLENDER_BIN": "proot-distro login debian -- blender"
+}
+```
+
+Precedence is `process.env` → `config.json` → literal `blender`. The server
+tokenizes `BLENDER_BIN`, so all of these work:
 
 ```sh
 export BLENDER_BIN="blender"

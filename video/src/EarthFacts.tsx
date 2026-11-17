@@ -594,7 +594,7 @@ const HeaderProgress: React.FC = () => {
           textAlign: "right",
         }}
       >
-        {current >= 0 ? `${String(current + 1).padStart(2, "0")} / 05` : "TOP 5"}
+        {current >= 0 ? `${String(current + 1).padStart(2, "0")} / 10` : "TOP 10"}
       </div>
     </div>
   );
@@ -642,7 +642,7 @@ export const EarthFacts: React.FC = () => {
           zIndex: 40,
         }}
       >
-        5 FACTS DAILY
+        10 FACTS DAILY
       </div>
     </AbsoluteFill>
   );

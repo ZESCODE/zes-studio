@@ -2,6 +2,8 @@
 // zes-studio server — Control Panel + Pipeline Orchestrator (zero external deps)
 //   GET    /api/status              health
 //   GET    /api/image               proxy -> image.pollinations.ai (avoids browser Origin 403)
+//   GET    /image                   standalone Image Studio (public/image-studio.html)
+//   GET    /connect                 Qwen bookmarklet callback (public/connect.html)
 //   POST   /api/qwen-video          spawn python qwen_video.py -> { jobId }
 //   POST   /api/previs              write tmp/shot_<id>.json, spawn blender -b -P previs_build.py -> { jobId }
 //   POST   /api/render              start a Remotion render job (FactsVideo props, KineticVideo, or { asset })
@@ -14,6 +16,10 @@
 //   GET    /api/assets              list files in renders/ with size + mtime
 //   DELETE /api/assets/:name        delete an asset in renders/ (path-sanitized)
 //   GET    /api/settings            read-only env + directory configuration
+//   GET    /api/account             Qwen account status (no secrets)
+//   POST   /api/account             validate + save cookie/token to config.json
+//   POST   /api/account/check       re-validate saved Qwen credentials
+//   DELETE /api/account             remove saved Qwen credentials
 //   POST   /api/blender-test        run `${BLENDER_BIN} --version` asynchronously
 //   GET    /renders/:file           stream rendered media (HTTP Range supported)
 //   *                               static files from ./public (SPA fallback)
@@ -39,6 +45,10 @@ const PROPS_DIR = path.resolve(VIDEO_DIR, ".props");
 const CONFIG_FILE = path.resolve(ROOT_DIR, "config.json");
 const QWEN_SCRIPT = path.resolve(ROOT_DIR, "qwen_video.py");
 const PREVIS_SCRIPT = path.resolve(ROOT_DIR, "previs_build.py");
+const NARRATION_SCRIPT = path.resolve(ROOT_DIR, "narration.py");
+const KOKORO_DIR = path.resolve(process.env.KOKORO_DIR || path.join(path.dirname(ROOT_DIR), "kokoro-tts"));
+const MUSIC_FILE = process.env.MUSIC_FILE || path.resolve(VIDEO_DIR, "public", "audio", "music.mp3");
+const RENDER_SECONDS = 45;
 
 const MOVIES_DIR = process.env.MOVIES_DIR || "/storage/emulated/0/Movies";
 const MOVIE_EXPORT = process.env.NO_MOVIE_EXPORT !== "1";
@@ -66,6 +76,11 @@ const MIME = {
   ".ico": "image/x-icon",
   ".mp4": "video/mp4",
   ".webm": "video/webm",
+  ".m4a": "audio/mp4",
+  ".aac": "audio/aac",
+  ".mp3": "audio/mpeg",
+  ".wav": "audio/wav",
+  ".ogg": "audio/ogg",
   ".ttf": "font/ttf",
   ".woff2": "font/woff2",
   ".map": "application/json",
@@ -123,10 +138,196 @@ function loadLocalConfig() {
   }
 }
 
-function hasQwenAuth() {
-  if (process.env.QWEN_TOKEN && process.env.QWEN_TOKEN.trim()) return true;
+function normalizeQwenToken(raw) {
+  return String(raw || "")
+    .trim()
+    .replace(/^["']+|["']+$/g, "")
+    .replace(/^Bearer\s+/i, "")
+    .trim();
+}
+
+function parseCookiePairs(raw) {
+  const pairs = {};
+  for (const part of String(raw || "").split(";")) {
+    if (!part.includes("=")) continue;
+    const idx = part.indexOf("=");
+    const key = part.slice(0, idx).trim();
+    if (key) pairs[key] = part.slice(idx + 1).trim();
+  }
+  return pairs;
+}
+
+function normalizeCookieHeader(raw) {
+  return String(raw || "")
+    .replace(/\s*\r?\n\s*/g, "")
+    .trim();
+}
+
+function mergeCookieHeader(cookie, patch) {
+  const map = parseCookiePairs(cookie);
+  for (const [key, value] of Object.entries(patch || {})) {
+    if (value) map[key] = value;
+  }
+  return Object.entries(map).map(([key, value]) => `${key}=${value}`).join("; ");
+}
+
+function tokenExpiresSoon(token, withinMs = 10 * 60 * 1000) {
+  try {
+    const part = String(token || "").split(".")[1];
+    if (!part) return false;
+    const payload = JSON.parse(Buffer.from(part.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8"));
+    if (!payload?.exp) return false;
+    return payload.exp * 1000 - Date.now() < withinMs;
+  } catch {
+    return false;
+  }
+}
+
+async function refreshQwenAccessToken(cookies) {
+  const cookie = normalizeCookieHeader(cookies);
+  const cookieMap = parseCookiePairs(cookie);
+  if (!cookieMap.refresh_token) {
+    return { ok: false, detail: "Cookie contains no refresh_token." };
+  }
+  const headers = {
+    accept: "application/json",
+    "accept-language": "en-US,en;q=0.9",
+    version: "0.3.45",
+    source: "web",
+    "x-request-id": (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`),
+    timezone: new Date().toString().replace(/\s*\(.+\)$/, ""),
+    "x-request-origin": "https://chat.qwen.ai",
+    origin: "https://chat.qwen.ai",
+    referer: "https://chat.qwen.ai/",
+    "user-agent": "Mozilla/5.0 (Linux; Android 13) ZES-Studio/2.0",
+    cookie,
+  };
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20000);
+  try {
+    const r = await fetch("https://auth.qwen.ai/api/v2/auths/refresh", { headers, signal: ctrl.signal });
+    const text = await r.text();
+    let body = null;
+    try { body = JSON.parse(text); } catch { body = null; }
+    if (r.status === 401 || r.status === 403) {
+      return { ok: false, status: r.status, detail: "Refresh token rejected (signed out or expired)." };
+    }
+    if (!r.ok) {
+      return { ok: false, status: r.status, detail: `auth.qwen.ai refresh returned HTTP ${r.status}.` };
+    }
+    const payload = body?.data?.data && typeof body.data.data === "object" ? body.data.data : body?.data;
+    const token = normalizeQwenToken(payload?.access_token || payload?.token);
+    if (!token) {
+      const reason = body?.data?.details || body?.details || "refresh response contained no access_token";
+      return { ok: false, status: r.status, detail: `Token refresh failed: ${reason}.` };
+    }
+    const nextCookies = mergeCookieHeader(cookie, { refresh_token: payload?.refresh_token || "" });
+    return { ok: true, status: r.status, token, cookies: nextCookies, expiresAt: payload?.expires_at || null };
+  } catch (e) {
+    const aborted = e && (e.name === "AbortError" || e.name === "TimeoutError");
+    return { ok: false, detail: aborted ? "Token refresh timed out after 20s." : `Refresh network error: ${String(e.message || e).slice(0, 160)}` };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function readQwenCreds() {
   const cfg = loadLocalConfig();
-  return Boolean(cfg.QWEN_TOKEN || cfg.qwen_token || cfg.token);
+  const envToken = String(process.env.QWEN_TOKEN || "").trim();
+  const envCookies = String(process.env.QWEN_COOKIES || "").trim();
+  const cfgToken = String(cfg.QWEN_TOKEN || cfg.qwen_token || cfg.token || "").trim();
+  const cfgCookies = String(cfg.QWEN_COOKIES || cfg.qwen_cookies || cfg.cookies || "").trim();
+  const cookies = normalizeCookieHeader(envCookies || cfgCookies);
+  const cookieMap = parseCookiePairs(cookies);
+  const token = normalizeQwenToken(envToken || cfgToken || cookieMap.token);
+  const source = (envToken || envCookies) ? "env" : (cfgToken || cfgCookies) ? "config" : "none";
+  return {
+    token,
+    cookies,
+    source,
+    configured: Boolean(token || cookies),
+    tokenPresent: Boolean(token),
+    hasCookies: Boolean(cookies),
+    cookieFields: Object.keys(cookieMap),
+    account: cfg.QWEN_ACCOUNT || null,
+    lastChecked: cfg.QWEN_LAST_CHECKED || null,
+    model: String(cfg.QWEN_MODEL || cfg.qwen_model || "qwen3.8-max"),
+  };
+}
+
+function publicAccountStatus() {
+  const c = readQwenCreds();
+  return {
+    configured: c.configured,
+    connected: c.configured,
+    source: c.source,
+    tokenPresent: c.tokenPresent,
+    hasCookies: c.hasCookies,
+    cookieFields: c.cookieFields,
+    account: c.account,
+    lastChecked: c.lastChecked,
+    model: c.model,
+    envOverride: c.source === "env",
+  };
+}
+
+function writeLocalConfig(mutate) {
+  const data = loadLocalConfig();
+  mutate(data);
+  const tmp = `${CONFIG_FILE}.${process.pid}.tmp`;
+  fs.writeFileSync(tmp, `${JSON.stringify(data, null, 2)}\n`, { mode: 0o600 });
+  fs.renameSync(tmp, CONFIG_FILE);
+  try { fs.chmodSync(CONFIG_FILE, 0o600); } catch { /* best effort */ }
+  return data;
+}
+
+async function validateQwenCreds(token, cookies) {
+  const cookieMap = parseCookiePairs(cookies);
+  const bearer = normalizeQwenToken(token || cookieMap.token);
+  if (!bearer && !cookies) {
+    return { ok: false, detail: "No cookie or token provided." };
+  }
+  const headers = {
+    "user-agent": "Mozilla/5.0 (Linux; Android 13) ZES-Studio/2.0",
+    accept: "application/json",
+    source: "web",
+    origin: "https://chat.qwen.ai",
+    referer: "https://chat.qwen.ai/",
+  };
+  if (cookies) headers.cookie = cookies;
+  if (bearer) headers.authorization = `Bearer ${bearer}`;
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20000);
+  try {
+    const r = await fetch("https://chat.qwen.ai/api/v1/auths/", { headers, signal: ctrl.signal });
+    const text = await r.text();
+    if (r.status === 401 || r.status === 403) {
+      return { ok: false, status: r.status, detail: "Token/cookie rejected (expired or logged out)." };
+    }
+    if (!r.ok) {
+      return { ok: false, status: r.status, detail: `chat.qwen.ai returned HTTP ${r.status}.` };
+    }
+    if (text.trim().startsWith("<")) {
+      return { ok: false, status: r.status, detail: "chat.qwen.ai returned an HTML login/WAF page." };
+    }
+    let data = null;
+    try { data = JSON.parse(text); } catch { data = null; }
+    if (!data || typeof data !== "object") {
+      return { ok: false, status: r.status, detail: "Unexpected response from chat.qwen.ai." };
+    }
+    const account = String(data.email || data.username || data.name || data.id || "").trim() || null;
+    return { ok: true, status: r.status, account, detail: account ? `Signed in as ${account}.` : "Credentials accepted by chat.qwen.ai." };
+  } catch (e) {
+    const aborted = e && (e.name === "AbortError" || e.name === "TimeoutError");
+    return { ok: false, detail: aborted ? "Validation timed out after 20s." : `Network error: ${String(e.message || e).slice(0, 160)}` };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function hasQwenAuth() {
+  return readQwenCreds().tokenPresent;
 }
 
 /**
@@ -135,7 +336,9 @@ function hasQwenAuth() {
  * such as "proot-distro login debian -- blender".
  */
 function resolveBlenderCmd(extraArgs = []) {
-  const raw = (process.env.BLENDER_BIN || "blender").trim() || "blender";
+  const cfg = loadLocalConfig();
+  const configured = process.env.BLENDER_BIN ?? cfg.BLENDER_BIN ?? cfg.blender_bin;
+  const raw = String(configured ?? "").trim() || "blender";
   if (fs.existsSync(raw)) {
     return { bin: raw, args: [...extraArgs], display: raw };
   }
@@ -244,24 +447,44 @@ function serveStatic(res, urlPath) {
 /* --------------------------- image proxy ------------------------------ */
 
 async function handleImage(url, res) {
-  const prompt = url.searchParams.get("prompt") || "";
-  const model = url.searchParams.get("model") || "flux";
-  const width = url.searchParams.get("width") || "1024";
-  const height = url.searchParams.get("height") || "1024";
-  if (!prompt.trim()) return sendJson(res, 400, { error: "bad_request", detail: "prompt required" });
+  const prompt = (url.searchParams.get("prompt") || "").trim();
+  const model = (url.searchParams.get("model") || "flux").trim() || "flux";
+  const clampDim = (raw, fallback) => {
+    const n = Number.parseInt(raw, 10);
+    return String(Number.isFinite(n) ? Math.max(64, Math.min(2048, n)) : fallback);
+  };
+  const width = clampDim(url.searchParams.get("width"), 1024);
+  const height = clampDim(url.searchParams.get("height"), 1024);
+  if (!prompt) return sendJson(res, 400, { error: "bad_request", detail: "prompt required" });
+  if (prompt.length > 1200) return sendJson(res, 400, { error: "bad_request", detail: "prompt too long (max 1200 chars)" });
 
-  const target = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}`
-    + `?model=${encodeURIComponent(model)}&width=${encodeURIComponent(width)}`
-    + `&height=${encodeURIComponent(height)}&nologo=true&enhance=false`;
+  const seed = url.searchParams.get("seed");
+  const target = new URL(`https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}`);
+  target.searchParams.set("model", model);
+  target.searchParams.set("width", width);
+  target.searchParams.set("height", height);
+  target.searchParams.set("nologo", url.searchParams.get("nologo") === "0" ? "false" : "true");
+  target.searchParams.set("enhance", url.searchParams.get("enhance") === "1" ? "true" : "false");
+  if (seed && /^\d{1,12}$/.test(seed)) target.searchParams.set("seed", seed);
+
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 120000);
     const r = await fetch(target, { signal: ctrl.signal, headers: { Accept: "image/*" } });
     clearTimeout(t);
-    if (!r.ok) return sendJson(res, r.status === 429 ? 429 : 502, { error: "upstream_error", status: r.status });
+    if (!r.ok) {
+      let detail = "";
+      try { detail = (await r.text()).slice(0, 200); } catch { detail = ""; }
+      return sendJson(res, r.status === 429 ? 429 : 502, {
+        error: "upstream_error",
+        status: r.status,
+        detail: detail || "image upstream rejected the request",
+      });
+    }
     const buf = Buffer.from(await r.arrayBuffer());
     res.writeHead(200, {
       "Content-Type": r.headers.get("content-type") || "image/png",
+      "Content-Length": buf.length,
       "Cache-Control": "no-cache",
       "Access-Control-Allow-Origin": "*",
     });
@@ -534,23 +757,44 @@ function startQwenVideoJob(prompt, aspectRatio) {
   const outPath = path.resolve(RENDERS_DIR, outFile);
   const job = createJob("qwen", { prompt: prompt.slice(0, 240), aspect_ratio: aspectRatio });
 
-  return enqueueJob(job, (j) => {
+  return enqueueJob(job, async (j) => {
     const cfg = loadLocalConfig();
     const workerEnv = {
       ...process.env,
       PYTHONUNBUFFERED: "1",
     };
-    if (!workerEnv.QWEN_TOKEN && (cfg.QWEN_TOKEN || cfg.qwen_token || cfg.token)) {
-      workerEnv.QWEN_TOKEN = String(cfg.QWEN_TOKEN || cfg.qwen_token || cfg.token);
+    const envHasCreds = Boolean(process.env.QWEN_TOKEN || process.env.QWEN_COOKIES);
+    let token = normalizeQwenToken(process.env.QWEN_TOKEN || cfg.QWEN_TOKEN || cfg.qwen_token || cfg.token);
+    let cookies = normalizeCookieHeader(process.env.QWEN_COOKIES || cfg.QWEN_COOKIES || cfg.qwen_cookies || cfg.cookies);
+
+    if (cookies && (!token || tokenExpiresSoon(token))) {
+      const refreshed = await refreshQwenAccessToken(cookies);
+      if (refreshed.ok) {
+        token = refreshed.token;
+        cookies = refreshed.cookies;
+        appendJobLog(j, "Refreshed Qwen access token from saved cookie.");
+        if (!envHasCreds) {
+          writeLocalConfig((data) => {
+            data.QWEN_COOKIES = cookies;
+            data.qwen_cookies = cookies;
+            data.QWEN_TOKEN = token;
+            data.qwen_token = token;
+            const refreshToken = parseCookiePairs(cookies).refresh_token;
+            if (refreshToken) data.QWEN_REFRESH_TOKEN = refreshToken;
+          });
+        }
+      } else {
+        appendJobLog(j, `Qwen token refresh failed: ${refreshed.detail}`);
+      }
     }
+
+    if (token) workerEnv.QWEN_TOKEN = token;
+    if (cookies) workerEnv.QWEN_COOKIES = cookies;
     if (!workerEnv.QWEN_PROXY && (cfg.QWEN_PROXY || cfg.qwen_proxy || cfg.proxy)) {
       workerEnv.QWEN_PROXY = String(cfg.QWEN_PROXY || cfg.qwen_proxy || cfg.proxy);
     }
     if (!workerEnv.QWEN_MODEL && (cfg.QWEN_MODEL || cfg.qwen_model)) {
       workerEnv.QWEN_MODEL = String(cfg.QWEN_MODEL || cfg.qwen_model);
-    }
-    if (!workerEnv.QWEN_COOKIES && (cfg.QWEN_COOKIES || cfg.qwen_cookies || cfg.cookies)) {
-      workerEnv.QWEN_COOKIES = String(cfg.QWEN_COOKIES || cfg.qwen_cookies || cfg.cookies);
     }
 
     const args = [
@@ -868,6 +1112,225 @@ async function downloadBackgroundImages(scenes) {
   return scenes;
 }
 
+/**
+ * Run a child process inside the active job, streaming its log into the queue.
+ * Resolves on exit code 0, rejects with the last stderr lines otherwise.
+ */
+function runJobChild(job, bin, args, options = {}) {
+  return new Promise((resolve, reject) => {
+    let child;
+    try {
+      child = spawnPiped(bin, args, { cwd: ROOT_DIR, env: { ...process.env }, ...options });
+    } catch (e) {
+      reject(e);
+      return;
+    }
+    job.child = child;
+    const { flushRemaining } = wireChildStreams(job, child);
+    child.on("error", (e) => reject(e));
+    child.on("close", (code) => {
+      const errs = flushRemaining();
+      job.child = null;
+      if (code === 0) resolve();
+      else reject(new Error(errs.slice(-2).join(" ").slice(0, 240) || `exited with code ${code}`));
+    });
+  });
+}
+
+function prootInnerCommand(inner) {
+  const useProot = process.env.RENDER_INSIDE_PROOT !== "0";
+  return useProot
+    ? { bin: "proot-distro", args: ["login", "debian", "--", "bash", "-lc", inner] }
+    : { bin: "bash", args: ["-lc", inner] };
+}
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+function runQuiet(bin, args, timeoutMs = 120000) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(bin, args, { stdio: ["ignore", "ignore", "pipe"] });
+    let err = "";
+    const timer = setTimeout(() => child.kill("SIGKILL"), timeoutMs);
+    child.stderr.on("data", (d) => { if (err.length < 4000) err += String(d); });
+    child.on("error", (e) => { clearTimeout(timer); reject(e); });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      if (code === 0) resolve();
+      else reject(new Error(err.trim().split("\n").slice(-2).join(" ").slice(0, 240) || `exit ${code}`));
+    });
+  });
+}
+
+async function fetchImageBuffer(url, timeoutMs = 120000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      signal: ctrl.signal,
+      redirect: "follow",
+      headers: { Accept: "image/*", "User-Agent": "ZES-Studio/2.0 (Termux; personal video tool)" },
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const type = String(res.headers.get("content-type") || "");
+    if (!type.startsWith("image/")) throw new Error(`unexpected content-type ${type || "?"}`);
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length < 4096) throw new Error("image payload too small");
+    return buf;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function pollinationsUrl(prompt, seed) {
+  return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1080&height=1920&model=flux&nologo=true&seed=${seed}`;
+}
+
+const WIKIMEDIA_STOPWORDS = new Set([
+  "the", "a", "an", "of", "and", "with", "no", "text", "cinematic", "photography",
+  "documentary", "dramatic", "lighting", "clouds", "cloud", "golden", "hour",
+  "view", "aerial", "scene", "scenic", "style", "background", "4k", "hd", "hdr",
+  "image", "image of the", "cinematically", "sunset", "sunrise", "moody",
+]);
+
+function wikimediaSearchTerms(prompt) {
+  const words = String(prompt)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !WIKIMEDIA_STOPWORDS.has(w));
+  const seen = [];
+  for (const w of words) if (!seen.includes(w)) seen.push(w);
+  return seen.slice(0, 8);
+}
+
+async function wikimediaQuery(terms) {
+  const query = encodeURIComponent(`filetype:bitmap ${terms.join(" ")}`);
+  const api = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${query}&gsrlimit=6&gsrnamespace=6&prop=imageinfo&iiprop=url&iiurlwidth=1080&format=json`;
+  const res = await fetch(api, {
+    headers: { Accept: "application/json", "User-Agent": "ZES-Studio/2.0 (Termux; personal video tool)" },
+  });
+  if (!res.ok) throw new Error(`Wikimedia HTTP ${res.status}`);
+  const data = await res.json();
+  for (const page of Object.values(data?.query?.pages || {})) {
+    const info = Array.isArray(page?.imageinfo) ? page.imageinfo[0] : null;
+    const url = info?.thumburl || info?.url;
+    if (url && /\.(jpe?g|png|webp)$/i.test(url.split("?")[0])) return { url, title: page.title };
+  }
+  return null;
+}
+
+async function wikimediaImage(job, prompt) {
+  const words = wikimediaSearchTerms(prompt);
+  const attempts = [];
+  if (words.length) attempts.push(words);
+  if (words.length > 3) attempts.push(words.slice(0, 3));
+  if (words.length > 1) attempts.push([words[0]]);
+  for (const terms of attempts) {
+    try {
+      const hit = await wikimediaQuery(terms);
+      if (hit) return hit;
+      appendJobLog(job, `Wikimedia search "${terms.join(" ")}" returned no images`, "stderr");
+    } catch (e) {
+      appendJobLog(job, `Wikimedia search failed: ${String(e.message || e)}`, "stderr");
+    }
+  }
+  return null;
+}
+
+/** Fetch a backdrop image (Pollinations, then Wikimedia fallback) into renders/. */
+async function generateBackdrop(job, prompt) {
+  const text = String(prompt || "").trim();
+  if (!text) return null;
+  appendJobLog(job, `Generating backdrop image: ${text.slice(0, 100)}`);
+
+  let buf = null;
+  let source = "";
+  for (let attempt = 0; attempt < 2 && !buf; attempt++) {
+    try {
+      buf = await fetchImageBuffer(pollinationsUrl(text, Date.now() % 100000), 110000);
+      source = "pollinations";
+    } catch (e) {
+      appendJobLog(job, `Pollinations attempt ${attempt + 1} failed: ${String(e.message || e)}`, "stderr");
+      if (attempt === 0) await sleep(2500);
+    }
+  }
+  if (!buf) {
+    try {
+      const hit = await wikimediaImage(job, text);
+      if (hit) {
+        buf = await fetchImageBuffer(hit.url, 90000);
+        source = `wikimedia:${hit.title}`;
+      }
+    } catch (e) {
+      appendJobLog(job, `Wikimedia fallback failed: ${String(e.message || e)}`, "stderr");
+    }
+  }
+  if (!buf) {
+    appendJobLog(job, "Backdrop skipped (all image sources failed); using animated backdrop", "stderr");
+    return null;
+  }
+
+  fs.mkdirSync(TMP_DIR, { recursive: true });
+  const rawFile = path.join(TMP_DIR, `bg_raw_${job.id}`);
+  const name = `bg_${job.id}.jpg`;
+  const outFile = path.join(RENDERS_DIR, name);
+  fs.writeFileSync(rawFile, buf);
+  try {
+    await runQuiet("ffmpeg", [
+      "-y", "-loglevel", "error", "-i", rawFile,
+      "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920",
+      "-frames:v", "1", "-q:v", "3", outFile,
+    ]);
+  } finally {
+    fs.rmSync(rawFile, { force: true });
+  }
+  if (!fs.existsSync(outFile)) throw new Error("Backdrop normalization failed");
+  appendJobLog(job, `Backdrop saved from ${source.split(":")[0]}: ${name} (${Math.round(fs.statSync(outFile).size / 1024)} KB)`);
+  return `http://127.0.0.1:${PORT}/renders/${encodeURIComponent(name)}`;
+}
+
+/** Synthesize a Kokoro voiceover track aligned to the FactsVideo timeline. */
+async function generateNarration(job, propsFile, voice) {
+  if (!fs.existsSync(KOKORO_DIR) || !fs.existsSync(path.join(KOKORO_DIR, ".venv"))) {
+    throw new Error(`Kokoro venv not found in ${KOKORO_DIR} (install Kokoro-TTS-Local there)`);
+  }
+  const wavFile = path.join(TMP_DIR, `narration_${job.id}.wav`);
+  const inner = [
+    `cd ${JSON.stringify(KOKORO_DIR)} &&`,
+    `.venv/bin/python ${JSON.stringify(NARRATION_SCRIPT)}`,
+    `--props ${JSON.stringify(propsFile)}`,
+    `--out ${JSON.stringify(wavFile)}`,
+    `--voice ${JSON.stringify(voice || "af_bella")}`,
+  ].join(" ");
+  const { bin, args } = prootInnerCommand(inner);
+  appendJobLog(job, `Synthesizing voiceover with Kokoro (${voice || "af_bella"})`);
+  await runJobChild(job, bin, args, { cwd: KOKORO_DIR });
+  if (!fs.existsSync(wavFile)) throw new Error("Narration worker produced no WAV file");
+  appendJobLog(job, `Voiceover ready: ${path.basename(wavFile)}`);
+  return wavFile;
+}
+
+/** Mix the voiceover with the looped music bed into a single AAC track. */
+async function mixNarrationMusic(job, voiceWav, withMusic) {
+  const outName = `audio_${job.id}.m4a`;
+  const outPath = path.join(RENDERS_DIR, outName);
+  const args = ["-y", "-loglevel", "error"];
+  if (withMusic && fs.existsSync(MUSIC_FILE)) {
+    args.push("-stream_loop", "-1", "-i", MUSIC_FILE);
+  }
+  args.push("-i", voiceWav);
+  const filter = withMusic && fs.existsSync(MUSIC_FILE)
+    ? "[0:a]volume=0.16,afade=t=out:st=41:d=4[music];[1:a]volume=1.0[voice];[music][voice]amix=inputs=2:duration=longest:normalize=0,loudnorm=I=-16:TP=-1.5:LRA=11[a]"
+    : "[0:a]loudnorm=I=-16:TP=-1.5:LRA=11[a]";
+  args.push("-filter_complex", filter, "-map", "[a]", "-t", String(RENDER_SECONDS), "-c:a", "aac", "-b:a", "160k", outPath);
+  appendJobLog(job, withMusic ? "Mixing voiceover + music bed" : "Mixing voiceover");
+  await runJobChild(job, "ffmpeg", args);
+  if (!fs.existsSync(outPath)) throw new Error("ffmpeg produced no mixed audio");
+  return outName;
+}
+
 function startRender(props, opts = {}) {
   const composition = opts.composition || "FactsVideo";
   const job = createJob("render", {
@@ -902,6 +1365,27 @@ function startRender(props, opts = {}) {
             appendJobLog(j, `Selected asset: ${safeAsset.name} (using animated backdrop; ffmpeg poster optional)`);
           }
         }
+      }
+    }
+
+    const media = opts.media && typeof opts.media === "object" ? opts.media : null;
+    if (media && composition === "FactsVideo") {
+      try {
+        if (media.imagePrompt && !props.imageSrc) {
+          j.progress = Math.max(j.progress, 2); j.updatedAt = Date.now();
+          props.imageSrc = await generateBackdrop(j, media.imagePrompt);
+        }
+        if (media.voice !== false) {
+          fs.writeFileSync(propsFile, JSON.stringify(props, null, 2));
+          j.progress = Math.max(j.progress, 5); j.updatedAt = Date.now();
+          const wavFile = await generateNarration(j, propsFile, media.voice || "af_bella");
+          const audioName = await mixNarrationMusic(j, wavFile, media.music !== false);
+          props.audioSrc = `http://127.0.0.1:${PORT}/renders/${encodeURIComponent(audioName)}`;
+          appendJobLog(j, `Audio track attached: ${audioName}`);
+        }
+      } catch (e) {
+        finishJobError(j, `media prep failed: ${String(e.message || e)}`);
+        return;
       }
     }
 
@@ -1133,9 +1617,11 @@ const server = http.createServer(async (req, res) => {
 
     if (p === "/api/settings" && req.method === "GET") {
       const blender = resolveBlenderCmd([]);
+      const cfgLocal = loadLocalConfig();
+      const cfgBlender = cfgLocal.BLENDER_BIN || cfgLocal.blender_bin;
       return sendJson(res, 200, {
-        blenderBin: process.env.BLENDER_BIN || "blender",
-        blenderBinSource: process.env.BLENDER_BIN ? "env" : "default",
+        blenderBin: process.env.BLENDER_BIN || cfgBlender || "blender",
+        blenderBinSource: process.env.BLENDER_BIN ? "env" : cfgBlender ? "config" : "default",
         resolvedBlenderBin: blender.bin,
         resolvedBlenderPrefixArgs: blender.args,
         pythonBin: PYTHON_BIN,
@@ -1153,6 +1639,137 @@ const server = http.createServer(async (req, res) => {
         version: VERSION,
         nodeVersion: process.version,
         platform: `${process.platform}/${process.arch}`,
+      });
+    }
+
+    if (p === "/api/account" && req.method === "GET") {
+      return sendJson(res, 200, publicAccountStatus());
+    }
+
+    if (p === "/api/account" && req.method === "POST") {
+      let body;
+      try { body = await readBody(req); }
+      catch (e) { return sendJson(res, 400, { error: "bad_request", detail: String(e.message || e) }); }
+
+      let cookie = normalizeCookieHeader(typeof body?.cookie === "string" ? body.cookie : "");
+      let bearer = normalizeQwenToken(typeof body?.token === "string" ? body.token : "");
+      const model = typeof body?.model === "string" ? body.model.trim() : "";
+      if (!cookie && !bearer) {
+        return sendJson(res, 400, { error: "bad_request", detail: "Provide a cookie header or a token." });
+      }
+      if (cookie.length > 20000) {
+        return sendJson(res, 400, { error: "bad_request", detail: "cookie header is too large" });
+      }
+
+      const cookieMap = parseCookiePairs(cookie);
+      if (!bearer) bearer = normalizeQwenToken(cookieMap.token);
+      let refreshNote = "";
+
+      if (!bearer) {
+        if (!cookieMap.refresh_token) {
+          return sendJson(res, 400, {
+            error: "missing_token",
+            detail: "Cookie has no token or refresh_token. Use the Connect bookmarklet while signed in on chat.qwen.ai.",
+          });
+        }
+        const refreshed = await refreshQwenAccessToken(cookie);
+        if (!refreshed.ok) {
+          return sendJson(res, 400, {
+            error: "refresh_failed",
+            detail: refreshed.detail,
+            status: refreshed.status || null,
+          });
+        }
+        bearer = refreshed.token;
+        cookie = refreshed.cookies;
+        refreshNote = " Refreshed the access token from the cookie.";
+      }
+
+      let result = await validateQwenCreds(bearer, cookie);
+      if (!result.ok && parseCookiePairs(cookie).refresh_token) {
+        const refreshed = await refreshQwenAccessToken(cookie);
+        if (refreshed.ok) {
+          bearer = refreshed.token;
+          cookie = refreshed.cookies;
+          result = await validateQwenCreds(bearer, cookie);
+          if (result.ok) refreshNote = " Refreshed the access token from the cookie.";
+        }
+      }
+      if (!result.ok) {
+        return sendJson(res, 400, { error: "validation_failed", detail: result.detail + refreshNote, status: result.status || null });
+      }
+
+      writeLocalConfig((data) => {
+        if (cookie) {
+          data.QWEN_COOKIES = cookie;
+          data.qwen_cookies = cookie;
+        }
+        if (bearer) {
+          data.QWEN_TOKEN = bearer;
+          data.qwen_token = bearer;
+        }
+        const refreshToken = parseCookiePairs(cookie).refresh_token;
+        if (refreshToken) data.QWEN_REFRESH_TOKEN = refreshToken;
+        delete data.token;
+        delete data.cookies;
+        if (model) data.QWEN_MODEL = model;
+        data.QWEN_ACCOUNT = result.account || "connected";
+        data.QWEN_LAST_CHECKED = new Date().toISOString();
+      });
+
+      return sendJson(res, 200, { ok: true, detail: result.detail + refreshNote, ...publicAccountStatus() });
+    }
+
+    if (p === "/api/account/check" && req.method === "POST") {
+      const creds = readQwenCreds();
+      if (!creds.configured) {
+        return sendJson(res, 400, { error: "not_configured", detail: "No Qwen credentials saved yet." });
+      }
+      let token = creds.token;
+      let cookies = creds.cookies;
+      let refreshNote = "";
+      let result = await validateQwenCreds(token, cookies);
+      if (!result.ok && parseCookiePairs(cookies).refresh_token) {
+        const refreshed = await refreshQwenAccessToken(cookies);
+        if (refreshed.ok) {
+          token = refreshed.token;
+          cookies = refreshed.cookies;
+          result = await validateQwenCreds(token, cookies);
+          if (result.ok) refreshNote = " Refreshed the access token from the cookie.";
+        }
+      }
+      if (result.ok) {
+        writeLocalConfig((data) => {
+          data.QWEN_COOKIES = cookies;
+          data.qwen_cookies = cookies;
+          data.QWEN_TOKEN = token;
+          data.qwen_token = token;
+          const refreshToken = parseCookiePairs(cookies).refresh_token;
+          if (refreshToken) data.QWEN_REFRESH_TOKEN = refreshToken;
+          if (result.account) data.QWEN_ACCOUNT = result.account;
+          data.QWEN_LAST_CHECKED = new Date().toISOString();
+        });
+      }
+      return sendJson(res, result.ok ? 200 : 400, {
+        detail: result.detail + refreshNote,
+        ok: result.ok,
+        detail: result.detail,
+        status: result.status || null,
+        ...publicAccountStatus(),
+      });
+    }
+
+    if (p === "/api/account" && req.method === "DELETE") {
+      writeLocalConfig((data) => {
+        for (const key of ["QWEN_COOKIES", "qwen_cookies", "cookies", "QWEN_TOKEN", "qwen_token", "token", "QWEN_REFRESH_TOKEN", "QWEN_ACCOUNT", "QWEN_LAST_CHECKED"]) {
+          delete data[key];
+        }
+      });
+      const status = publicAccountStatus();
+      return sendJson(res, 200, {
+        ok: true,
+        detail: status.source === "env" ? "Removed saved credentials, but QWEN_* environment variables still override them." : "Saved credentials removed.",
+        ...status,
       });
     }
 
@@ -1281,10 +1898,24 @@ const server = http.createServer(async (req, res) => {
       let props;
       try { props = sanitizeProps(body); }
       catch (e) { return sendJson(res, 400, { error: "bad_request", detail: String(e.message || e) }); }
+
+      let media = null;
+      if (body.media && typeof body.media === "object" && !Array.isArray(body.media)) {
+        const raw = body.media;
+        media = {
+          voice: raw.voice === false
+            ? false
+            : (typeof raw.voice === "string" && /^[a-z]{2}_[a-z]+$/.test(raw.voice) ? raw.voice : "af_bella"),
+          music: raw.music !== false,
+          imagePrompt: typeof raw.imagePrompt === "string" ? raw.imagePrompt.slice(0, 800) : "",
+        };
+      }
+
       const job = startRender(props, {
         frames: body.frames,
         concurrency: body.concurrency,
         asset: body.asset,
+        media,
       });
       return sendJson(res, 202, { jobId: job.id, ...publicJob(job) });
     }
@@ -1314,8 +1945,32 @@ const server = http.createServer(async (req, res) => {
       const ext = path.extname(safe.name).toLowerCase();
       const download = url.searchParams.has("download");
       if ((ext === ".mp4" || ext === ".webm") && serveVideo(req, res, safe.fullPath, { download })) return;
-      if ([".png", ".jpg", ".jpeg", ".webp"].includes(ext) && serveFile(res, safe.fullPath, { download })) return;
+      if (
+        [".png", ".jpg", ".jpeg", ".webp", ".m4a", ".aac", ".mp3", ".wav", ".ogg"].includes(ext) &&
+        serveFile(res, safe.fullPath, { download })
+      ) return;
       return sendJson(res, 404, { error: "not_found" });
+    }
+
+    if ((p === "/image" || p === "/image/") && req.method === "GET") {
+      return serveStatic(res, "/image-studio.html");
+    }
+
+    if (p === "/qwen-connect.user.js" && req.method === "GET") {
+      const host = String(req.headers.host || `127.0.0.1:${PORT}`);
+      const proto = String(req.headers["x-forwarded-proto"] || "http").split(",")[0].trim();
+      const origin = `${proto}://${host}`;
+      const file = path.join(PUBLIC_DIR, "qwen-connect.user.js");
+      const js = fs.readFileSync(file, "utf8").replaceAll("__ZES_ORIGIN__", origin);
+      res.writeHead(200, {
+        "Content-Type": "text/javascript; charset=utf-8",
+        "Cache-Control": "no-store",
+      });
+      return res.end(js);
+    }
+
+    if ((p === "/connect" || p === "/connect/") && req.method === "GET") {
+      return serveStatic(res, "/connect.html");
     }
 
     return serveStatic(res, p === "/" ? "/index.html" : p);
@@ -1330,7 +1985,7 @@ server.listen(PORT, "0.0.0.0", () => {
   console.log(`[zes-studio] public=${PUBLIC_DIR}`);
   console.log(`[zes-studio] renders=${RENDERS_DIR}`);
   console.log(`[zes-studio] tmp=${TMP_DIR}`);
-  console.log(`[zes-studio] blender=${process.env.BLENDER_BIN || "blender"}`);
+  console.log(`[zes-studio] blender=${resolveBlenderCmd([]).display}`);
   console.log(`[zes-studio] exports -> ${MOVIE_EXPORT ? MOVIES_DIR : "disabled"}`);
   console.log(`[zes-studio] video project=${VIDEO_DIR}`);
 });

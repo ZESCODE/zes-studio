@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0d10">
+  <meta name="color-scheme" content="dark">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/style.css">
+  <title>Connect Qwen · ZES Studio</title>
+</head>
+<body>
+  <header class="app-bar">
+    <a class="icon-btn" href="/#settings" aria-label="Back to Settings">&larr;</a>
+    <div class="app-bar-title">Connect Qwen</div>
+    <a class="icon-btn" href="/#settings" aria-label="Settings">⚙</a>
+  </header>
+
+  <main class="main">
+    <div class="content">
+      <header class="view-header">
+        <div>
+          <p class="eyebrow">Qwen account</p>
+          <h1 tabindex="-1">Connecting…</h1>
+          <p class="muted" id="connect-lead">Reading the token captured from chat.qwen.ai.</p>
+        </div>
+      </header>
+
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2 id="connect-title">Handshake</h2>
+            <p class="muted">The token is posted only to this local server.</p>
+          </div>
+          <span id="connect-badge" class="badge"><span class="account-dot" aria-hidden="true"></span> Working</span>
+        </div>
+
+        <div id="connect-body" class="connect-body" aria-live="polite">
+          <div class="image-spinner" role="progressbar" aria-label="Saving credentials"></div>
+          <p class="muted">Validating with chat.qwen.ai…</p>
+        </div>
+
+        <div class="form-actions" id="connect-actions" hidden>
+          <a class="btn btn-primary" href="/#settings">Back to Settings</a>
+          <button class="btn btn-ghost" type="button" id="connect-retry" hidden>Try again</button>
+          <a class="btn btn-ghost" href="https://chat.qwen.ai/" target="_blank" rel="noopener" id="connect-qwen">Open chat.qwen.ai</a>
+        </div>
+      </section>
+
+      <section class="card" id="connect-help" aria-labelledby="connect-help-title">
+        <div class="section-head">
+          <div>
+            <h2 id="connect-help-title">No token received</h2>
+            <p class="muted">Open chat.qwen.ai and run the bookmarklet again.</p>
+          </div>
+        </div>
+        <ol class="connect-steps">
+          <li>Open <a href="https://chat.qwen.ai/" target="_blank" rel="noopener">chat.qwen.ai</a> and sign in.</li>
+          <li>Click the <strong>Connect Qwen</strong> bookmarklet that you copied from Settings.</li>
+          <li>You will land back here automatically with the token captured.</li>
+        </ol>
+        <p class="help">On mobile, create a bookmark and paste the <code>javascript:</code> snippet as its URL. The snippet reads only your Qwen <code>token</code> and the page cookies, then returns them to this local server.</p>
+      </section>
+    </div>
+  </main>
+
+  <script type="module" src="/connect.js"></script>
+</body>
+</html>

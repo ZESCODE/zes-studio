@@ -23,6 +23,8 @@ import {BrazilFacts} from "./BrazilFacts";
 import {TOTAL_FRAMES as BR_FRAMES} from "./brazilScript";
 import {EgyptFacts} from "./EgyptFacts";
 import {TOTAL_FRAMES as EG_FRAMES} from "./egyptScript";
+import {SpaceFacts} from "./SpaceFacts";
+import {TOTAL_FRAMES as SP_FRAMES} from "./spaceScript";
 import {KineticVideo} from "./KineticVideo";
 import {kineticDefaultProps, kineticSchema} from "./kinetic";
 
@@ -127,6 +129,14 @@ export const RemotionRoot: React.FC = () => {
       id="EgyptFacts"
       component={EgyptFacts}
       durationInFrames={EG_FRAMES}
+      fps={30}
+      width={1080}
+      height={1920}
+    />
+    <Composition
+      id="SpaceFacts"
+      component={SpaceFacts}
+      durationInFrames={SP_FRAMES}
       fps={30}
       width={1080}
       height={1920}

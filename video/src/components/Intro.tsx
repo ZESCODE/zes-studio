@@ -92,7 +92,7 @@ export const Intro: React.FC<{
           scale: interpolate(topIn, [0, 1], [0.9, 1]),
         }}
       >
-        TOP 5
+        TOP 10
       </div>
 
       <div

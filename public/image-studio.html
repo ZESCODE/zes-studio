@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0d10">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="ZES Studio Image Studio — free Pollinations image generation through the local proxy.">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/style.css">
+  <title>Image Studio · ZES Studio</title>
+</head>
+<body>
+  <header class="app-bar">
+    <a class="icon-btn" href="/" aria-label="Back to ZES Studio">&larr;</a>
+    <div class="app-bar-title">Image Studio</div>
+    <a class="icon-btn" href="/" aria-label="Dashboard">▦</a>
+  </header>
+
+  <main class="main">
+    <div class="content">
+      <header class="view-header">
+        <div>
+          <p class="eyebrow">Pollinations</p>
+          <h1 id="studio-title" tabindex="-1">Image Studio</h1>
+          <p class="muted">Pick a model, describe an image, get a result in seconds. Everything goes through the local <span class="mono">/api/image</span> proxy.</p>
+        </div>
+      </header>
+
+      <div class="image-layout">
+        <section class="card" aria-labelledby="compose-title">
+          <div class="section-head">
+            <div>
+              <h2 id="compose-title">Compose</h2>
+              <p class="muted">Cmd/Ctrl + Enter generates.</p>
+            </div>
+            <span id="model-badge" class="badge">flux</span>
+          </div>
+
+          <form id="image-studio-form" class="form-grid" novalidate>
+            <div class="field">
+              <label for="studio-prompt">Prompt</label>
+              <textarea id="studio-prompt" name="prompt" rows="5" maxlength="1200" required autocomplete="off" spellcheck="false" placeholder="a calico cat surfing on a glowing wave at sunset, photorealistic"></textarea>
+            </div>
+
+            <div class="field">
+              <label for="studio-model">Model</label>
+              <select id="studio-model" name="model">
+                <option value="flux">flux — photorealistic, versatile</option>
+                <option value="zimage">zimage — artistic, stylized</option>
+                <option value="klein">klein — fast, creative</option>
+                <option value="kontext">kontext — context-aware</option>
+                <option value="turbo">turbo — fastest drafts</option>
+              </select>
+            </div>
+
+            <div class="image-size-row">
+              <div class="field">
+                <label for="studio-width">Width</label>
+                <input id="studio-width" name="width" type="number" min="64" max="2048" step="64" value="1024" inputmode="numeric">
+              </div>
+              <div class="field">
+                <label for="studio-height">Height</label>
+                <input id="studio-height" name="height" type="number" min="64" max="2048" step="64" value="1024" inputmode="numeric">
+              </div>
+            </div>
+
+            <div class="field">
+              <span class="field-label">Aspect presets</span>
+              <div class="image-presets" data-size-group>
+                <button class="image-preset" type="button" data-size="1024x1024" aria-pressed="true">1:1</button>
+                <button class="image-preset" type="button" data-size="832x1216" aria-pressed="false">2:3</button>
+                <button class="image-preset" type="button" data-size="1216x832" aria-pressed="false">3:2</button>
+                <button class="image-preset" type="button" data-size="768x1344" aria-pressed="false">9:16</button>
+                <button class="image-preset" type="button" data-size="1344x768" aria-pressed="false">16:9</button>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button class="btn btn-primary" id="studio-generate" type="submit">
+                <span class="btn-label">Generate image</span>
+              </button>
+              <button class="btn btn-ghost" id="studio-randomize" type="button" data-action="randomize">Surprise me</button>
+            </div>
+            <p id="studio-status" class="status-line" role="status" aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section class="card" aria-labelledby="result-title">
+          <div class="section-head">
+            <div>
+              <h2 id="result-title">Result</h2>
+              <p class="muted" id="result-subtitle">Nothing generated yet.</p>
+            </div>
+            <div class="image-result-actions">
+              <button class="btn btn-ghost" type="button" data-action="download" disabled>Download</button>
+              <button class="btn btn-ghost" type="button" data-action="source" disabled>Source</button>
+              <button class="btn btn-ghost" type="button" data-action="copy" disabled>Copy URL</button>
+            </div>
+          </div>
+
+          <div class="image-stage" id="studio-stage">
+            <div class="image-placeholder" id="studio-empty">
+              <span class="eyebrow">Ready</span>
+              <p>Describe an image and press Generate.</p>
+            </div>
+
+            <div class="image-loading" id="studio-loading" hidden>
+              <div class="image-spinner" role="progressbar" aria-label="Generating image"></div>
+              <p>Generating… <span id="studio-elapsed" class="mono">0.0s</span></p>
+              <p class="mono image-source-url" id="studio-pending-url"></p>
+            </div>
+
+            <div class="image-error" id="studio-error" hidden>
+              <p id="studio-error-text"></p>
+              <p class="image-source-url mono" id="studio-error-url"></p>
+              <p class="help">Try a shorter prompt or a different model. If it persists, check access at
+                <a href="https://enter.pollinations.ai" target="_blank" rel="noopener">enter.pollinations.ai</a>.</p>
+            </div>
+
+            <img id="studio-image" alt="Generated image" hidden>
+          </div>
+
+          <div class="image-meta" id="studio-meta" hidden>
+            <span id="meta-model" class="badge">flux</span>
+            <span id="meta-size" class="mono">1024×1024</span>
+            <span id="meta-time" class="mono">—</span>
+            <span id="meta-prompt" class="image-meta-prompt"></span>
+          </div>
+
+          <section class="image-history-wrap" id="studio-history-wrap" hidden aria-labelledby="history-title">
+            <h3 id="history-title" class="field-label">Session history</h3>
+            <div class="image-history" id="studio-history" aria-live="polite"></div>
+          </section>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <script type="module" src="/image-studio.js"></script>
+</body>
+</html>

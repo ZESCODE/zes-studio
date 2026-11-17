@@ -36,6 +36,7 @@
     <nav class="drawer-nav" aria-label="Primary navigation">
       <a class="nav-link is-active" href="#dashboard" data-view="dashboard" aria-current="page"><span class="nav-icon" aria-hidden="true">▦</span><span>Dashboard</span></a>
       <a class="nav-link" href="#generate" data-view="generate"><span class="nav-icon" aria-hidden="true">✦</span><span>Generate (Qwen)</span></a>
+      <a class="nav-link" href="/image"><span class="nav-icon" aria-hidden="true">◨</span><span>Image Studio</span></a>
       <a class="nav-link" href="#previs" data-view="previs"><span class="nav-icon" aria-hidden="true">◈</span><span>Previs (Blender)</span></a>
       <a class="nav-link" href="#render" data-view="render"><span class="nav-icon" aria-hidden="true">▶</span><span>Render</span></a>
       <a class="nav-link" href="#assets" data-view="assets"><span class="nav-icon" aria-hidden="true">▤</span><span>Assets</span></a>
@@ -298,6 +299,28 @@
                 <label for="render-topic">Topic (optional)</label>
                 <input id="render-topic" name="topic" type="text" maxlength="80" autocomplete="off" spellcheck="false" placeholder="ZES STUDIO PIPELINE">
               </div>
+              <div class="field">
+                <label for="render-image-prompt">Backdrop image prompt (optional)</label>
+                <input id="render-image-prompt" name="imagePrompt" type="text" maxlength="800" autocomplete="off" spellcheck="false" placeholder="cinematic documentary background, dramatic lighting, no text">
+              </div>
+              <div class="field">
+                <label for="render-voice">Voiceover (Kokoro TTS)</label>
+                <select id="render-voice" name="voice" autocomplete="off">
+                  <option value="af_bella" selected>af_bella — US female</option>
+                  <option value="af_heart">af_heart — US female</option>
+                  <option value="am_michael">am_michael — US male</option>
+                  <option value="bf_emma">bf_emma — UK female</option>
+                  <option value="">None (silent)</option>
+                </select>
+              </div>
+              <label class="check-row" for="render-music">
+                <input id="render-music" name="music" type="checkbox" checked>
+                <span>Music bed (looped, ducked under voice)</span>
+              </label>
+              <div class="field">
+                <label for="render-facts">Facts JSON (optional, exactly 5)</label>
+                <textarea id="render-facts" name="facts" rows="4" autocomplete="off" spellcheck="false" placeholder='[{"emoji":"🌋","headline":"…","detail":"…","stat":"127","statLabel":"ACTIVE VOLCANOES"}]'></textarea>
+              </div>
               <button class="btn btn-primary btn-block" type="submit">Render Final</button>
               <p class="help">An asset shortcut supplies five default facts. Sending your own five-fact FactsVideo or KineticVideo payload still works unchanged.</p>
               <p id="render-status" class="status-line" role="status" aria-live="polite"></p>
@@ -390,6 +413,59 @@
           <dl id="settings-grid" class="settings-grid"></dl>
           <p class="help" style="margin-top:10px">Qwen tokens, proxies and cookies are read from process.env or gitignored config.json; their values are intentionally not shown here.</p>
         </section>
+        <section class="card" id="account-card" aria-labelledby="account-title">
+          <div class="section-head">
+            <div>
+              <h2 id="account-title">Qwen account</h2>
+              <p class="muted">Video generation (t2v) needs a logged-in chat.qwen.ai cookie and token.</p>
+            </div>
+            <span id="account-indicator" class="badge"><span class="account-dot" aria-hidden="true"></span> Checking…</span>
+          </div>
+
+          <dl id="account-summary" class="account-summary" aria-live="polite">
+            <div class="account-row"><dt>Status</dt><dd id="account-status-text">Loading…</dd></div>
+          </dl>
+
+          <div class="form-actions account-actions">
+            <button class="btn btn-ghost" type="button" data-action="account-check">Check connection</button>
+            <button class="btn btn-primary" type="button" data-action="account-connect-toggle">Connect account</button>
+            <button class="btn btn-danger" type="button" data-action="account-disconnect">Disconnect</button>
+          </div>
+
+          <form id="account-form" class="form-grid account-form" hidden>
+            <ol class="connect-steps">
+              <li>Sign in at <a href="https://chat.qwen.ai/" target="_blank" rel="noopener">chat.qwen.ai</a> (opens in a new tab).</li>
+              <li>For one-click capture, drag the <strong>Connect Qwen</strong> button to your bookmarks bar, then click that bookmark while on chat.qwen.ai. It returns here automatically.</li>
+              <li>Or paste the request <code>Cookie</code> header / localStorage <code>token</code> below. A cookie with only <code>refresh_token</code> is fine — the server exchanges it automatically.</li>
+            </ol>
+
+            <div class="bookmarklet-row">
+              <a id="account-bookmarklet" class="btn btn-primary" href="#" draggable="true" role="button">Connect Qwen</a>
+              <button class="btn btn-ghost" type="button" data-action="account-copy-bookmarklet">Copy bookmarklet</button>
+              <button class="btn btn-ghost" type="button" data-action="account-open-qwen">Open Qwen</button>
+              <button class="btn btn-ghost" type="button" data-action="account-userscript">Install userscript</button>
+            </div>
+            <p class="help">The bookmarklet reads your Qwen <code>token</code> and page cookies, then sends them to this local server at <code>/connect</code>. In Quetta, either edit a bookmark's URL with the copied snippet, or tap <strong>Install userscript</strong> with Tampermonkey installed — it adds a “Connect ZES Studio” button directly on chat.qwen.ai.</p>
+
+            <div class="field">
+              <label for="account-cookie">Cookie header</label>
+              <textarea id="account-cookie" name="cookie" rows="4" autocomplete="off" spellcheck="false" placeholder="cnaui=...; aui=...; token=...; ssxmod_itna=..."></textarea>
+              <p class="help">In Chrome: DevTools → Network → any <code>chat/completions</code> request → Request Headers → copy the whole <code>Cookie</code> value. The <code>token=</code> cookie is used automatically as the bearer token.</p>
+            </div>
+            <div class="field">
+              <label for="account-token">Bearer token (optional)</label>
+              <input id="account-token" name="token" type="password" autocomplete="off" spellcheck="false" placeholder="eyJ...">
+              <p class="help">Or paste just the localStorage <code>token</code> from chat.qwen.ai. Values are validated before saving and never shown again.</p>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" type="submit">Validate &amp; save</button>
+              <button class="btn btn-ghost" type="button" data-action="account-paste-clipboard">Paste from clipboard</button>
+              <button class="btn btn-ghost" type="button" data-action="account-connect-cancel">Cancel</button>
+            </div>
+            <p id="account-form-status" class="status-line" role="status" aria-live="polite"></p>
+          </form>
+        </section>
+
         <section class="card" aria-labelledby="blender-test-title">
           <div class="section-head">
             <div>

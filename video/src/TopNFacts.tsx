@@ -579,7 +579,7 @@ const OutroScene: React.FC<{
             opacity: kickerIn,
           }}
         >
-          5 FACTS DAILY
+          {cfg.factScenes.length} FACTS DAILY
         </div>
 
         <div
@@ -746,7 +746,9 @@ const HeaderProgress: React.FC<{cfg: TopNConfig}> = ({cfg}) => {
           textAlign: "right",
         }}
       >
-        {current >= 0 ? `${String(current + 1).padStart(2, "0")} / 05` : "TOP 5"}
+        {current >= 0
+          ? `${String(current + 1).padStart(2, "0")} / ${String(cfg.factScenes.length).padStart(2, "0")}`
+          : `TOP ${cfg.factScenes.length}`}
       </div>
     </div>
   );
@@ -785,15 +787,16 @@ const Footer: React.FC<{cfg: TopNConfig}> = ({cfg}) => {
           boxShadow: `0 0 22px ${cfg.accent}aa`,
         }}
       />
-      {cfg.brandLabel ?? "5 FACTS DAILY"}
+      {cfg.brandLabel ?? `${cfg.factScenes.length} FACTS DAILY`}
     </div>
   );
 };
 
 /**
- * Top-5 facts video template: logo splash, hook, 5 numbered fact cards with
+ * Top-N facts video template: logo splash, hook, N numbered fact cards with
  * stat badges, header progress bar, and outro — themed purely by a TopNConfig
- * (see USFacts.tsx / RussiaFacts.tsx for one-line wrappers).
+ * (see USFacts.tsx / RussiaFacts.tsx for one-line wrappers). The fact count is
+ * taken from the script, so 5- and 10-fact variants share this template.
  */
 export const TopNFacts: React.FC<TopNConfig> = (cfg) => {
   return (

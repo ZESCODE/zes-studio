@@ -2,18 +2,23 @@ import React from "react";
 import {interpolate, useCurrentFrame, useVideoConfig} from "remotion";
 
 const INTRO_END = 132;
-const OUTRO_START = 1182;
+const OUTRO = 192;
 
-export const ProgressBar: React.FC<{accent: string}> = ({accent}) => {
+export const ProgressBar: React.FC<{accent: string; total?: number}> = ({
+  accent,
+  total = 5,
+}) => {
   const frame = useCurrentFrame();
   const {durationInFrames} = useVideoConfig();
 
-  const span = (OUTRO_START - INTRO_END) / 5;
+  const count = Math.max(1, Math.round(total));
+  const factsEnd = Math.max(INTRO_END + 1, durationInFrames - OUTRO);
+  const span = (factsEnd - INTRO_END) / count;
   const active = Math.min(
-    4,
+    count - 1,
     Math.max(0, Math.floor((frame - INTRO_END) / span)),
   );
-  const inFacts = frame > INTRO_END && frame < OUTRO_START;
+  const inFacts = frame > INTRO_END && frame < factsEnd;
   const progress = Math.min(1, frame / durationInFrames);
 
   return (
@@ -33,7 +38,7 @@ export const ProgressBar: React.FC<{accent: string}> = ({accent}) => {
       }}
     >
       <div style={{display: "flex", gap: 10, flex: 1}}>
-        {[0, 1, 2, 3, 4].map((i) => {
+        {Array.from({length: count}, (_, i) => {
           const start = INTRO_END + i * span;
           const fill = Math.min(1, Math.max(0, (frame - start) / span));
           return (
@@ -66,12 +71,12 @@ export const ProgressBar: React.FC<{accent: string}> = ({accent}) => {
           fontWeight: 800,
           fontSize: 26,
           letterSpacing: 3,
-          color: "rgba(233,248,255,0.75)",
+          color: "rgba(233,248,255,0.75) ",
           minWidth: 82,
           textAlign: "right",
         }}
       >
-        {inFacts ? `${String(active + 1).padStart(2, "0")} / 05` : "TOP 5"}
+        {inFacts ? `${String(active + 1).padStart(2, "0")} / ${count}` : `TOP ${count}`}
       </div>
       <div
         style={{

@@ -8,6 +8,8 @@
     "start": "node server.mjs",
     "dev": "node server.mjs",
     "image": "python3 generate_image.py",
+    "qwen-auth": "python3 qwen_auth.py",
+    "qwen-auth:check": "python3 qwen_auth.py --check",
     "render": "cd video && node node_modules/@remotion/cli/remotion-cli.js render src/index.ts FactsVideo ../renders/out.mp4",
     "render:kinetic": "cd video && node node_modules/@remotion/cli/remotion-cli.js render src/index.ts KineticVideo ../renders/out.mp4",
     "render:russia": "cd video && node node_modules/@remotion/cli/remotion-cli.js render src/index.ts RussiaFacts ../renders/out.mp4",

@@ -53,6 +53,8 @@ const state = {
   assets: [],
   settings: null,
   blenderTest: null,
+  account: null,
+  accountCheck: null,
   jobDetail: null,
   selectedLogJob: null,
   playerName: null,
@@ -261,7 +263,10 @@ function setView(view, { focus = false } = {}) {
   if (focus) focusElement(document.querySelector(`#view-${next} h1`));
 
   if (next === "assets") fetchAssets({ quiet: true }).catch(() => {});
-  if (next === "settings") fetchSettings({ quiet: true }).catch(() => {});
+  if (next === "settings") {
+    fetchSettings({ quiet: true }).catch(() => {});
+    fetchAccount({ quiet: true }).catch(() => {});
+  }
   if (next === "logs" && state.selectedLogJob) {
     fetchJobDetail(state.selectedLogJob, { quiet: true }).catch(() => {});
   }
@@ -570,11 +575,220 @@ async function fetchSettings({ quiet = true } = {}) {
   }
 }
 
+async function fetchAccount({ quiet = true } = {}) {
+  try {
+    state.account = await api("/api/account");
+    state.accountCheck = null;
+    renderAccount();
+    return true;
+  } catch (err) {
+    state.account = null;
+    renderAccount();
+    if (!quiet) showToast(`Could not load account: ${err.message || err}`, "error");
+    return false;
+  }
+}
+
+async function checkAccount(button) {
+  if (state.accountChecking) return;
+  state.accountChecking = true;
+  if (button) button.disabled = true;
+  try {
+    const data = await api("/api/account/check", { method: "POST" });
+    state.account = pickAccount(data) || state.account;
+    state.accountCheck = { ok: true, detail: data.detail || "Connection verified." };
+    renderAccount();
+    showToast("Qwen account verified.", "ok");
+  } catch (err) {
+    state.accountCheck = { ok: false, detail: err.message || String(err) };
+    renderAccount();
+    showToast(`Check failed: ${err.message || err}`, "error");
+  } finally {
+    state.accountChecking = false;
+    if (button) button.disabled = false;
+  }
+}
+
+async function disconnectAccount() {
+  if (!window.confirm("Remove the saved Qwen cookie/token from config.json?")) return;
+  try {
+    const data = await api("/api/account", { method: "DELETE" });
+    state.account = pickAccount(data) || state.account;
+    state.accountCheck = null;
+    renderAccount();
+    showToast("Qwen credentials removed.", "ok");
+    await fetchSettings({ quiet: true });
+  } catch (err) {
+    showToast(`Disconnect failed: ${err.message || err}`, "error");
+  }
+}
+
+async function handleAccountSubmit(form) {
+  const cookie = String(form.querySelector('[name="cookie"]')?.value || "").trim();
+  const token = String(form.querySelector('[name="token"]')?.value || "").trim();
+  if (!cookie && !token) {
+    setStatusLine(form, "Paste a Cookie header or a token first.", "error");
+    return;
+  }
+  setFormBusy(form, true);
+  setStatusLine(form, "Validating with chat.qwen.ai…");
+  try {
+    const data = await api("/api/account", {
+      method: "POST",
+      body: JSON.stringify({ cookie, token }),
+    });
+    state.account = pickAccount(data) || state.account;
+    state.accountCheck = { ok: true, detail: data.detail || "Connected." };
+    form.reset();
+    form.hidden = true;
+    renderAccount();
+    setStatusLine(form, "");
+    showToast(data.detail || "Qwen account connected.", "ok");
+    await fetchSettings({ quiet: true });
+  } catch (err) {
+    setStatusLine(form, `Failed: ${err.message || err}`, "error");
+    showToast(`Connect failed: ${err.message || err}`, "error");
+  } finally {
+    setFormBusy(form, false);
+  }
+}
+
+function pickAccount(data) {
+  if (!data || typeof data !== "object") return null;
+  const keys = ["configured", "connected", "source", "tokenPresent", "hasCookies", "cookieFields", "account", "lastChecked", "model", "envOverride"];
+  const out = {};
+  let found = false;
+  for (const key of keys) {
+    if (key in data) {
+      out[key] = data[key];
+      found = true;
+    }
+  }
+  return found ? out : null;
+}
+
+function renderAccount() {
+  const badge = $("account-indicator");
+  const summary = $("account-summary");
+  if (!badge || !summary) return;
+
+  const a = state.account;
+  const check = state.accountCheck;
+  let label = "Not connected";
+  let tone = "is-error";
+  if (a === null) {
+    label = "Unavailable";
+  } else if (check && check.ok) {
+    label = "Verified";
+    tone = "is-ok";
+  } else if (check && !check.ok) {
+    label = "Rejected";
+  } else if (a.configured) {
+    label = "Configured";
+    tone = "is-ok";
+  }
+  badge.className = `badge ${tone}`.trim();
+  badge.innerHTML = `<span class="account-dot" aria-hidden="true"></span> ${esc(label)}`;
+
+  const rows = [];
+  if (!a) {
+    rows.push(["Status", "Could not load /api/account"]);
+  } else {
+    rows.push(["Status", a.configured
+      ? check && check.ok ? "Verified with chat.qwen.ai" : "Credentials saved (not checked yet)"
+      : "No Qwen credentials saved"]);
+    if (a.account) rows.push(["Account", a.account]);
+    rows.push(["Source", a.source === "env" ? "environment variables" : a.source === "config" ? "config.json" : "—"]);
+    rows.push(["Bearer token", a.tokenPresent ? "present" : "missing"]);
+    rows.push(["Cookie header", a.hasCookies
+      ? `${Array.isArray(a.cookieFields) ? a.cookieFields.length : 0} fields${a.cookieFields && a.cookieFields.length ? `: ${a.cookieFields.join(", ")}` : ""}`
+      : "not set"]);
+    rows.push(["Model", a.model || "qwen3.8-max"]);
+    if (a.lastChecked) rows.push(["Last checked", a.lastChecked]);
+    if (a.envOverride) rows.push(["Note", "QWEN_* environment variables override config.json"]);
+  }
+  if (check && check.detail) rows.push(["Result", check.detail]);
+
+  summary.innerHTML = rows.map(([labelText, value]) => `
+    <div class="account-row">
+      <dt>${esc(labelText)}</dt>
+      <dd>${esc(String(value))}</dd>
+    </div>`).join("");
+
+  const disconnect = document.querySelector('button[data-action="account-disconnect"]');
+  if (disconnect) disconnect.disabled = !(a && a.configured);
+}
+
+function buildConnectBookmarklet() {
+  const target = `${window.location.origin}/connect#p=`;
+  const code = [
+    "javascript:(async function(){try{",
+    "var o={cookie:document.cookie||'',token:''};",
+    "var keys=['token','access_token','active_token','qwen_token','qwen-token','auth_token'],i,k,v;",
+    "for(i=0;i<keys.length;i++){k=keys[i];v=(localStorage.getItem(k)||sessionStorage.getItem(k)||'');if(v){o.token=v;break;}}",
+    "if(!o.token){try{var st=localStorage.getItem('qwen_access_token_state');if(st){var sj=JSON.parse(st);o.token=(sj&&sj.token)||(sj&&sj.state&&sj.state.token)||'';}}catch(e){}}",
+    "if(!o.token){for(i=0;i<localStorage.length;i++){k=localStorage.key(i)||'';if(/token/i.test(k)){v=localStorage.getItem(k)||'';if(v){o.token=v;break;}}}}",
+    "o.token=String(o.token||'').replace(/^\"|\"$/g,'');",
+    "if(!o.token){",
+    "  try{",
+    "    var r=await fetch('https://auth.qwen.ai/api/v2/auths/refresh',{method:'GET',credentials:'include',headers:{'Accept':'application/json','Version':'0.3.45','source':'web','X-Request-Id':(crypto.randomUUID?crypto.randomUUID():String(Date.now())),'Timezone':new Date().toString().replace(/\\s*\\(.+\\)$/,''),'x-request-origin':'https://chat.qwen.ai'}});",
+    "    var j=await r.json(),d=j&&j.data;o.token=(d&&(d.access_token||d.token))||'';",
+    "  }catch(e){}",
+    "}",
+    "if(!o.token){alert('Qwen token not found. Stay signed in on chat.qwen.ai and try again.');return;}",
+    "var b=btoa(unescape(encodeURIComponent(JSON.stringify(o))));",
+    `window.location.href=${JSON.stringify(target)}+encodeURIComponent(b);`,
+    "}catch(e){alert('Qwen connect failed: '+e);}})();",
+  ].join("");
+  return code;
+}
+
+function installBookmarklet() {
+  const link = $("account-bookmarklet");
+  if (!link) return;
+  const code = buildConnectBookmarklet();
+  if (link.dataset.bound === "1") return;
+  link.dataset.bound = "1";
+  link.setAttribute("href", code);
+  link.addEventListener("click", (event) => {
+    event.preventDefault();
+    showToast("Drag this button to the bookmarks bar, then click it on chat.qwen.ai.");
+  });
+}
+
+async function copyBookmarklet() {
+  try {
+    await navigator.clipboard.writeText(buildConnectBookmarklet());
+    showToast("Bookmarklet copied. Create a bookmark with it.", "ok");
+  } catch {
+    showToast("Clipboard unavailable. Open Settings on desktop Chrome.", "error");
+  }
+}
+
+async function pasteCredentials() {
+  const cookieEl = $("account-cookie");
+  const tokenEl = $("account-token");
+  try {
+    const text = String((await navigator.clipboard.readText()) || "").trim();
+    if (!text) {
+      showToast("Clipboard is empty.", "error");
+      return;
+    }
+    const looksLikeToken = text.length > 40 && !text.includes(";") && !text.includes("=");
+    if (looksLikeToken && tokenEl) tokenEl.value = text;
+    else if (cookieEl) cookieEl.value = text;
+    showToast(`Pasted ${looksLikeToken ? "token" : "cookie header"}.`, "ok");
+  } catch {
+    showToast("Clipboard permission denied.", "error");
+  }
+}
+
 async function refreshAll({ quiet = true } = {}) {
   const results = await Promise.all([
     refreshJobs({ quiet }),
     fetchAssets({ quiet }),
     fetchSettings({ quiet }),
+    fetchAccount({ quiet }),
   ]);
   if (!quiet) {
     const ok = results.every(Boolean);
@@ -1006,12 +1220,37 @@ async function handlePrevisSubmit(form) {
 async function handleRenderSubmit(form) {
   const asset = String(form.querySelector('[name="asset"]')?.value || "");
   const topic = String(form.querySelector('[name="topic"]')?.value || "").trim();
-  const body = asset
-    ? { asset, ...(topic ? { topic } : {}) }
-    : { facts: FALLBACK_FACTS, ...(topic ? { topic } : {}) };
+  const imagePromptInput = String(form.querySelector('[name="imagePrompt"]')?.value || "").trim();
+  const voice = String(form.querySelector('[name="voice"]')?.value || "");
+  const music = Boolean(form.querySelector('[name="music"]')?.checked);
+  const factsRaw = String(form.querySelector('[name="facts"]')?.value || "").trim();
+
+  let facts = FALLBACK_FACTS;
+  if (factsRaw) {
+    try {
+      const parsed = JSON.parse(factsRaw);
+      if (!Array.isArray(parsed) || parsed.length !== 5) {
+        throw new Error("facts must be a JSON array of exactly 5 items");
+      }
+      facts = parsed;
+    } catch (err) {
+      setStatusLine(form, `Invalid facts JSON: ${err.message}`, "error");
+      showToast("Fix the facts JSON before rendering.", "error");
+      return;
+    }
+  }
+
+  const imagePrompt = imagePromptInput
+    || (topic ? `cinematic documentary background of ${topic}, dramatic lighting, no text` : "");
+
+  const body = {
+    ...(asset ? { asset } : { facts }),
+    ...(topic ? { topic } : {}),
+    media: { voice: voice || false, music, imagePrompt },
+  };
 
   setFormBusy(form, true);
-  setStatusLine(form, "Queueing Remotion render…");
+  setStatusLine(form, "Queueing Remotion render with media prep…");
   try {
     const data = await jsonPost("/api/render", body);
     const id = data.jobId || data.id || "?";
@@ -1146,6 +1385,45 @@ async function handleAction(button) {
     case "refresh-settings":
       await fetchSettings({ quiet: false });
       break;
+    case "account-check":
+      await checkAccount(button);
+      break;
+    case "account-connect-toggle": {
+      const form = $("account-form");
+      installBookmarklet();
+      window.open("https://chat.qwen.ai/", "_blank", "noopener");
+      if (form) {
+        form.hidden = false;
+        setStatusLine(form, "Sign in on the new tab, then run the bookmarklet or paste credentials.");
+        focusElement($("account-cookie"));
+      }
+      break;
+    }
+    case "account-open-qwen":
+      window.open("https://chat.qwen.ai/", "_blank", "noopener");
+      break;
+    case "account-copy-bookmarklet":
+      await copyBookmarklet();
+      break;
+    case "account-paste-clipboard":
+      await pasteCredentials();
+      break;
+    case "account-userscript":
+      window.open("/qwen-connect.user.js", "_blank", "noopener");
+      showToast("Install the script in Tampermonkey, then reload chat.qwen.ai.");
+      break;
+    case "account-connect-cancel": {
+      const form = $("account-form");
+      if (form) {
+        form.hidden = true;
+        form.reset();
+        setStatusLine(form, "");
+      }
+      break;
+    }
+    case "account-disconnect":
+      await disconnectAccount();
+      break;
     case "test-blender":
       await testBlender(button);
       break;
@@ -1243,6 +1521,11 @@ function handleSubmit(event) {
   if (form.id === "image-form") {
     event.preventDefault();
     handleImageSubmit(form);
+    return;
+  }
+  if (form.id === "account-form") {
+    event.preventDefault();
+    handleAccountSubmit(form).catch((err) => showToast(`Connect failed: ${err.message || err}`, "error"));
   }
 }
 
@@ -1336,6 +1619,8 @@ function init() {
   setView(viewFromHash(), { focus: false });
   renderAssets();
   renderSettings();
+  renderAccount();
+  installBookmarklet();
   renderBlenderTest();
   renderAllJobViews();
   refreshAll({ quiet: true }).catch(() => showToast("Initial refresh failed.", "error"));
